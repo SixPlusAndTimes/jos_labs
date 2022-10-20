@@ -81,7 +81,9 @@
  *     "Empty Memory" is normally unmapped, but user programs may map pages
  *     there if desired.  JOS user programs map pages temporarily at UTEMP.
  */
-
+//0xf0000000 = 3840 MB
+//0xffffffff - 0xf000000 = 256 MB, 也就是说内核占256MB
+//0xefc00000 = 3832 MB
 
 // All physical memory mapped at this address
 #define	KERNBASE	0xF0000000
