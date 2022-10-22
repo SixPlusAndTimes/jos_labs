@@ -51,7 +51,7 @@ i386_detect_memory(void)
 
 	npages = totalmem / (PGSIZE / 1024);
 	npages_basemem = basemem / (PGSIZE / 1024);
-
+	cprintf("memory checked , npages = %d\n", npages);
 	cprintf("Physical memory: %uK available, base = %uK, extended = %uK\n",
 		totalmem, basemem, totalmem - basemem);
 }
