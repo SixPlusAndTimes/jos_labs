@@ -78,7 +78,8 @@ getint(va_list *ap, int lflag)
 
 // Main function to format and print a string.
 void printfmt(void (*putch)(int, void*), void *putdat, const char *fmt, ...);
-
+// putch ： 从printf.c来看，这就是 putch，putch调用cputchar，会在终端上打印一个字符
+// putdat： 打印的字符数量
 void
 vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 {
@@ -206,11 +207,10 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 		// (unsigned) octal
 		case 'o':
 			// Replace this with your code.
-			putch('X', putdat);
-			putch('X', putdat);
-			putch('X', putdat);
+			num = getuint(&ap, lflag);
+			base = 8;
+			goto number;
 			break;
-
 		// pointer
 		case 'p':
 			putch('0', putdat);
