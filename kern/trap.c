@@ -246,6 +246,13 @@ page_fault_handler(struct Trapframe *tf)
 	// Handle kernel-mode page faults.
 
 	// LAB 3: Your code here.
+	// 通过cs的cpl判断是否处于内核
+	if((tf->tf_cs & 3) == 0) {
+		// 如果pagefault发生在内核中，cs的后两位是0
+		// cprintf("unexpected trap %d from cpu %d eip %x (cr2=0x%x)\n",
+		// f->trapno, cpuid(), tf->eip, rcr2());
+		panic("page_fault in kernel, fault address %d\n", fault_va);
+	}
 	// struct PageInfo * mem = page_alloc(ALLOC_ZERO);
 	// if(mem == 0){
     //     cprintf("trap.c : page_fault_handler, page_alloc failed!\n");

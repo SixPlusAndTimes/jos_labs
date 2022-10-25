@@ -593,13 +593,30 @@ user_mem_check(struct Env *env, const void *va, size_t len, int perm)
 	for (uintptr_t i = vaddr_start; i < vaddr_end; i += PGSIZE) {
 		pte_t* pte =  pgdir_walk(env->env_pgdir, (void*)i, 0);
 		if (!pte) {
-			user_mem_check_addr = i;
-			cprintf("pmap.c: user_mem_check failed\n");
+			// user_mem_check_addr = i; // 这样写没有通过 buggyhello，只能得到75分， 但是其他的都通过了，为什么？ 要错一起错啊。。。
+			user_mem_check_addr = (i < (uintptr_t)va? (uintptr_t)va : i);
+			cprintf("pmap.c: user_mem_check failed, pte not found\n");
 			return  -E_FAULT;
 		}
-		if(!(*pte & PTE_U)) {
-			user_mem_check_addr = i;
-			cprintf("pmap.c: user_mem_check failed\n");
+		// 仔细考虑后，下面这个条件可以不加，已经包括在 perminssion deny的分支了！
+		// if(i > ULIM ) {
+		// 	// evil hello 在这里
+		// 	// 虚拟地址超过了ULIM，这对用户来说是不合法的
+		// 	user_mem_check_addr = (i < (uintptr_t)va? (uintptr_t)va : i);
+		// 	cprintf("pmap.c: user_mem_check failed, vaddr > ULIM!\n");
+		// 	return -E_FAULT;
+		// }
+		if ((*pte & PTE_P) == 0) {
+			// buggy hello 和 buggy hello2 在这里
+			// 因为我们根本没有映射 env中的用户部分
+			user_mem_check_addr = (i < (uintptr_t)va? (uintptr_t)va : i);
+			cprintf("pmap.c: user_mem_check failed, PTE_P not valid\n");
+			return -E_FAULT;
+		}
+		if ((*pte & perm) != perm) {
+			// evil hello 在这里
+			user_mem_check_addr = (i < (uintptr_t)va? (uintptr_t)va : i);
+			cprintf("pmap.c: user_mem_check failed, permission denied\n");
 			return -E_FAULT;
 		}
 	}
