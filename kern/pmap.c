@@ -588,11 +588,13 @@ int
 user_mem_check(struct Env *env, const void *va, size_t len, int perm)
 {
 	// LAB 3: Your code here.
+	cprintf("user_mem_check, passed va = %x\n",va);
 	uintptr_t vaddr_start = (uintptr_t)ROUNDDOWN((uintptr_t)va, PGSIZE);
+	cprintf("user_mem_check, ROUNDDOWN passed va = %x\n",vaddr_start);
 	uintptr_t vaddr_end =  (uintptr_t)ROUNDUP((uintptr_t)va + len, PGSIZE);
 	for (uintptr_t i = vaddr_start; i < vaddr_end; i += PGSIZE) {
 		pte_t* pte =  pgdir_walk(env->env_pgdir, (void*)i, 0);
-		if (!pte) {
+		if (pte == NULL) {
 			// user_mem_check_addr = i; // 这样写没有通过 buggyhello，只能得到75分， 但是其他的都通过了，为什么？ 要错一起错啊。。。
 			user_mem_check_addr = (i < (uintptr_t)va? (uintptr_t)va : i);
 			cprintf("pmap.c: user_mem_check failed, pte not found\n");

@@ -6,6 +6,7 @@
 void
 umain(int argc, char **argv)
 {
+	// 虚拟地址1， 不会映射到用户区域！
 	sys_cputs((char*)1, 1);
 }
 
