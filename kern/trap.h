@@ -20,4 +20,26 @@ void print_trapframe(struct Trapframe *tf);
 void page_fault_handler(struct Trapframe *);
 void backtrace(struct Trapframe *);
 
+// 在 trapentry.S中定义的入口函数，最后都会调用 trap()
+void divide_handler();
+void debug_handler();
+void nmi_handler();    
+void brkpt_handler(); 
+void oflow_handler();
+void bound_handler();
+void illop_handler();
+void device_handler();
+
+void dblflt_handler();
+void tss_handler();
+void segnp_handler();
+void stack_handler();
+void gpflt_handler();
+void pgflt_handler();
+
+void fperr_handler();
+void align_handler();
+void mchk_handler();
+void simderr_handler();
+void syscall_handler();
 #endif /* JOS_KERN_TRAP_H */

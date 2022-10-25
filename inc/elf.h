@@ -26,8 +26,8 @@ struct Proghdr { // 程序头结构
 	uint32_t p_offset; // 该程序段在磁盘上相对于 文件起始的偏移地址
 	uint32_t p_va; // 该段加载到内存时的虚拟地址，exec函数中用到
 	uint32_t p_pa; // 该段加载到内存时的物理地址，启动时加载内核 elf 文件时用到
-	uint32_t p_filesz;// 该段在磁盘上的大小
-	uint32_t p_memsz; // 该段在内存上的大小
+	uint32_t p_filesz;// 该段在磁盘上的大小，单位字节
+	uint32_t p_memsz; // 该段在内存上的大小， 单位字节
 	uint32_t p_flags;
 	uint32_t p_align;
 };

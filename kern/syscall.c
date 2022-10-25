@@ -4,16 +4,17 @@
 #include <inc/error.h>
 #include <inc/string.h>
 #include <inc/assert.h>
-
+#include <inc/mmu.h>
 #include <kern/env.h>
 #include <kern/pmap.h>
 #include <kern/trap.h>
 #include <kern/syscall.h>
 #include <kern/console.h>
+#include <kern/env.h>
 
 // Print a string to the system console.
 // The string is exactly 'len' characters long.
-// Destroys the environment on memory errors.
+// Destroys the environment on memory errors. 消除环境的操作在 pmap.c中
 static void
 sys_cputs(const char *s, size_t len)
 {
@@ -21,6 +22,7 @@ sys_cputs(const char *s, size_t len)
 	// Destroy the environment if not.
 
 	// LAB 3: Your code here.
+	user_mem_assert(curenv,s,len,PTE_U | PTE_P);
 
 	// Print the string supplied by the user.
 	cprintf("%.*s", len, s);
@@ -70,11 +72,20 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 	// Return any appropriate return value.
 	// LAB 3: Your code here.
 
-	panic("syscall not implemented");
+	// panic("syscall not implemented");
 
 	switch (syscallno) {
-	default:
-		return -E_INVAL;
+		case SYS_cputs:
+			sys_cputs((const char*)a1, (size_t)a2);
+			return 0;
+		case SYS_cgetc :
+			return sys_cgetc();
+		case SYS_getenvid:
+			return sys_getenvid();
+		case SYS_env_destroy:
+			return sys_env_destroy((envid_t)a1);
+		default:
+			return -E_INVAL;
 	}
 }
 

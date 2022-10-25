@@ -65,7 +65,27 @@ trap_init(void)
 	extern struct Segdesc gdt[];
 
 	// LAB 3: Your code here.
-
+	// SETGATE(idt向量, 是否是trap，选择子，入口函数指针， 特权级)
+	// 如果是trap，那么异常发生时，不会将 IF位置0（即关中断）
+	SETGATE(idt[T_DIVIDE], 1, GD_KT, divide_handler, 0);
+	SETGATE(idt[T_DEBUG], 1, GD_KT, debug_handler, 0);
+	SETGATE(idt[T_NMI], 1, GD_KT, nmi_handler, 0);
+	SETGATE(idt[T_BRKPT], 0, GD_KT, brkpt_handler, 3);
+	SETGATE(idt[T_OFLOW], 1, GD_KT, oflow_handler, 0);
+	SETGATE(idt[T_BOUND], 1, GD_KT, bound_handler, 0);
+	SETGATE(idt[T_ILLOP], 1, GD_KT, illop_handler, 0);
+	SETGATE(idt[T_DEVICE], 1, GD_KT, device_handler, 0);
+	SETGATE(idt[T_DBLFLT], 1, GD_KT, dblflt_handler, 0);
+	SETGATE(idt[T_TSS], 1, GD_KT, tss_handler, 0);
+	SETGATE(idt[T_SEGNP], 1, GD_KT, segnp_handler, 0);
+	SETGATE(idt[T_STACK], 1, GD_KT, stack_handler, 0);
+	SETGATE(idt[T_GPFLT], 1, GD_KT, gpflt_handler, 0);
+	SETGATE(idt[T_PGFLT], 1, GD_KT, pgflt_handler, 0);
+	SETGATE(idt[T_FPERR], 1, GD_KT, fperr_handler, 0);
+	SETGATE(idt[T_ALIGN], 1, GD_KT, align_handler, 0);
+	SETGATE(idt[T_MCHK], 1, GD_KT, mchk_handler, 0);
+	SETGATE(idt[T_SIMDERR], 1, GD_KT, simderr_handler, 0);
+	SETGATE(idt[T_SYSCALL], 0, GD_KT, syscall_handler, 3);
 	// Per-CPU setup 
 	trap_init_percpu();
 }
@@ -144,15 +164,36 @@ trap_dispatch(struct Trapframe *tf)
 {
 	// Handle processor exceptions.
 	// LAB 3: Your code here.
-
-	// Unexpected trap: The user process or the kernel has a bug.
-	print_trapframe(tf);
-	if (tf->tf_cs == GD_KT)
-		panic("unhandled trap in kernel");
-	else {
-		env_destroy(curenv);
-		return;
+	int ret ;
+	switch(tf->tf_trapno){
+		case T_PGFLT:
+			page_fault_handler(tf);
+			break;
+		case T_BRKPT:
+			monitor(tf);
+			break;
+		case T_SYSCALL:
+			// struct PushRegs regImage = tf->tf_regs;
+			
+			ret = syscall(tf->tf_regs.reg_eax,
+					tf->tf_regs.reg_edx,
+					tf->tf_regs.reg_ecx,
+					tf->tf_regs.reg_ebx,
+					tf->tf_regs.reg_edi,
+					tf->tf_regs.reg_esi);
+			tf->tf_regs.reg_eax = ret;// 设置中断返回值
+			break;
+		default:
+			// Unexpected trap: The user process or the kernel has a bug.
+			print_trapframe(tf);
+			if (tf->tf_cs == GD_KT)
+				panic("unhandled trap in kernel");
+			else {
+				env_destroy(curenv);
+				return;
+			}
 	}
+
 }
 
 void
@@ -205,7 +246,18 @@ page_fault_handler(struct Trapframe *tf)
 	// Handle kernel-mode page faults.
 
 	// LAB 3: Your code here.
-
+	// struct PageInfo * mem = page_alloc(ALLOC_ZERO);
+	// if(mem == 0){
+    //     cprintf("trap.c : page_fault_handler, page_alloc failed!\n");
+    //     page_free(mem);
+    //   } else {
+	// 	if (page_insert(curenv->env_pgdir, mem, (void*)fault_va, PTE_P|PTE_U|PTE_W) < 0) {
+	// 		cprintf("trap.c : page_fault_handler, page_insert failed!\n");
+	// 		page_free(mem);
+	// 	}else {
+	// 		return;
+	// 	}
+    //   }
 	// We've already handled kernel-mode exceptions, so if we get here,
 	// the page fault happened in user mode.
 

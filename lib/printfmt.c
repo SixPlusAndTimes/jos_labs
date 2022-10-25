@@ -78,8 +78,9 @@ getint(va_list *ap, int lflag)
 
 // Main function to format and print a string.
 void printfmt(void (*putch)(int, void*), void *putdat, const char *fmt, ...);
-// putch ： 从printf.c来看，这就是 putch，putch调用cputchar，会在终端上打印一个字符
-// putdat： 打印的字符数量
+// 这个函数同时被 lib\printf 和 kern\printf 调用。 两种情况下，putch和putdat都不同
+// 如果是用户调用这个库，那么putdat就是一个缓冲区，putch判断缓冲区是否满，如果满了就调用系统调用sys_cputs
+// 如果是内核调用这个库，那么putadat是一个计数值, putch直接调用cons_put 将字符打印在终端上
 void
 vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 {
