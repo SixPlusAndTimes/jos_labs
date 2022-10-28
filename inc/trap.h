@@ -57,7 +57,7 @@ struct PushRegs {
 
 struct Trapframe {
 	/**/
-	struct PushRegs tf_regs; // 寄存器映像由_alltrapspush，在 trapentry.S 中定义
+	struct PushRegs tf_regs; // 寄存器映像由_alltraps push，在 trapentry.S 中定义
 	uint16_t tf_es;
 	uint16_t tf_padding1;
 	uint16_t tf_ds;

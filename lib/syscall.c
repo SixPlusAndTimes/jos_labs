@@ -21,19 +21,18 @@ syscall(int num, int check, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 	// memory locations.
 
 	asm volatile("int %1\n"
-		     : "=a" (ret)
-		     : "i" (T_SYSCALL),
-		       "a" (num),
-		       "d" (a1),
+		     : "=a" (ret) // =号 指定一个输出寄存器，这里是eax
+		     : "i" (T_SYSCALL), // 系统调用的向量号，作为上面int 指令的参数
+		       "a" (num),       // 输入寄存器eax存放num
+		       "d" (a1),		// 下面同
 		       "c" (a2),
 		       "b" (a3),
 		       "D" (a4),
 		       "S" (a5)
-		     : "cc", "memory");
+		     : "cc", "memory"); // cc告诉GCC我们改变了flags 寄存器； Using the "memory" clobber effectively forms a read/write memory barrier for the compiler.
 
 	if(check && ret > 0)
 		panic("syscall %d returned %d (> 0)", num, ret);
-
 	return ret;
 }
 

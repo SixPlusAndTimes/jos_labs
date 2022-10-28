@@ -131,7 +131,7 @@ env_init(void)
 void
 env_init_percpu(void)
 {
-	lgdt(&gdt_pd);
+	lgdt(&gdt_pd); // 加在全局描述符表
 	// The kernel never uses GS or FS, so we leave those set to
 	// the user data segment.
 	asm volatile("movw %%ax,%%gs" : : "a" (GD_UD|3));
@@ -372,7 +372,8 @@ load_icode(struct Env *e, uint8_t *binary)
 	eph = ph + elf->e_phnum;
 
 	e->env_tf.tf_eip = elf->e_entry; // 设置新环境的初始运行地址
-	lcr3(PADDR(e->env_pgdir)); // 这一行只要在for之前，是不是加在哪里都可以？ 从partA的测试结果来看，是的
+	cprintf("env_tf.tf_eip = %x\n",elf->e_entry);
+	lcr3(PADDR(e->env_pgdir)); // 这一行只要在for之前，是不是加在哪里都可以？ 从partA的测试结果来看，是的。 这方便了 memmove、memset的操作
 	
 	for (; ph < eph; ph++) {
 		if (ph->p_type == ELF_PROG_LOAD) {
@@ -494,7 +495,7 @@ void
 env_pop_tf(struct Trapframe *tf)
 {
 	asm volatile(
-		"\tmovl %0,%%esp\n"
+		"\tmovl %0,%%esp\n" // esp 指向trapframe 末尾
 		"\tpopal\n"
 		"\tpopl %%es\n"
 		"\tpopl %%ds\n"

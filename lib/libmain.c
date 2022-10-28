@@ -19,7 +19,7 @@ libmain(int argc, char **argv)
 	if (argc > 0)
 		binaryname = argv[0];
 
-	// call user main routine
+	// call user main routine， 用户程序的main函数
 	umain(argc, argv);
 
 	// exit gracefully

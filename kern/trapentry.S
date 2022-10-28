@@ -30,7 +30,7 @@
 
 /* Use TRAPHANDLER_NOEC for traps where the CPU doesn't push an error code.
  * It pushes a 0 in place of the error code, so the trap frame has the same
- * format in either case. CPU不自动push error code的 exception，则调用这个函数，我们手动push一个0，作为error code
+ * format in either case. CPU不自动push error code的 exception，则调用这个宏，我们手动push一个0，作为error code
  */
 #define TRAPHANDLER_NOEC(name, num)					\
 	.globl name;							\
