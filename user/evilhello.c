@@ -7,6 +7,7 @@ void
 umain(int argc, char **argv)
 {
 	// try to print the kernel entry point as a string!  mua ha ha!
+	// 没啥好说的，0xf010000c > ULIM
 	sys_cputs((char*)0xf010000c, 100);
 }
 

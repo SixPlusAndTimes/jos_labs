@@ -62,7 +62,7 @@ entry:
 	orl	$(CR0_PE|CR0_PG|CR0_WP), %eax
 	movl	%eax, %cr0
 
-	# Now paging is enabled, but we're still running at a low EIP
+	# Now paging is enabled, but we're still running at a low EIP , 因为 kernel.ld : ENTRY(_start), 把这个地址作为入口地址，而在这个文件开头将 _start地址重新映射到了低地址处
 	# (why is this okay?).  Jump up above KERNBASE before entering
 	# C code.
 	mov	$relocated, %eax
@@ -91,7 +91,7 @@ spin:	jmp	spin
 	.p2align	PGSHIFT		# force page alignment
 	.globl		bootstack
 bootstack:
-	.space		KSTKSIZE
+	.space		KSTKSIZE     # 分配一个8 * 4096的栈
 	.globl		bootstacktop   
 bootstacktop:
 

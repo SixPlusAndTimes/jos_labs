@@ -119,7 +119,13 @@ env_init(void)
 {
 	// Set up envs array
 	// LAB 3: Your code here.
-
+	env_free_list = NULL;
+	for(int i=NENV-1; i>=0; i--){
+		envs[i].env_id = 0;
+		envs[i].env_status = ENV_FREE;
+		envs[i].env_link = env_free_list;
+		env_free_list = &envs[i];
+	}
 	// Per-CPU part of the initialization
 	env_init_percpu();
 }
@@ -128,7 +134,7 @@ env_init(void)
 void
 env_init_percpu(void)
 {
-	lgdt(&gdt_pd);
+	lgdt(&gdt_pd); // 加在全局描述符表
 	// The kernel never uses GS or FS, so we leave those set to
 	// the user data segment.
 	asm volatile("movw %%ax,%%gs" : : "a" (GD_UD|3));
@@ -158,12 +164,15 @@ env_init_percpu(void)
 static int
 env_setup_vm(struct Env *e)
 {
-	int i;
+	// int i;
 	struct PageInfo *p = NULL;
 
 	// Allocate a page for the page directory
-	if (!(p = page_alloc(ALLOC_ZERO)))
+	if (!(p = page_alloc(ALLOC_ZERO))) {
+		cprintf("env.c,env_setup_vm:  page_alloc failed!\n");
 		return -E_NO_MEM;
+	}
+	
 
 	// Now, set e->env_pgdir and initialize the page directory.
 	//
@@ -180,8 +189,13 @@ env_setup_vm(struct Env *e)
 	//	is an exception -- you need to increment env_pgdir's
 	//	pp_ref for env_free to work correctly.
 	//    - The functions in kern/pmap.h are handy.
-
+	// 需要考虑 pp_ref!
 	// LAB 3: Your code here.
+	e->env_pgdir = (pde_t*)page2kva(p);
+	p->pp_ref++;
+	for (int i = PDX(UTOP); i < NPDENTRIES; i++) {
+		e->env_pgdir[i] = kern_pgdir[i];
+	}
 
 	// UVPT maps the env's own page table read-only.
 	// Permissions: kernel R, user R
@@ -197,7 +211,7 @@ env_setup_vm(struct Env *e)
 // Returns 0 on success, < 0 on failure.  Errors include:
 //	-E_NO_FREE_ENV if all NENV environments are allocated
 //	-E_NO_MEM on memory exhaustion
-//
+// 将从env_free_list拿出一个空闲的env赋值给 newenv_store
 int
 env_alloc(struct Env **newenv_store, envid_t parent_id)
 {
@@ -205,12 +219,18 @@ env_alloc(struct Env **newenv_store, envid_t parent_id)
 	int r;
 	struct Env *e;
 
-	if (!(e = env_free_list))
+	if (!(e = env_free_list)) {
+		cprintf("env.c : evn_alloc, no free env\n");
 		return -E_NO_FREE_ENV;
+	}
+	
 
 	// Allocate and set up the page directory for this environment.
-	if ((r = env_setup_vm(e)) < 0)
+	if ((r = env_setup_vm(e)) < 0) {
+		cprintf("env.c : evn_alloc, env_setup_vm failed !\n");
 		return r;
+	}
+		
 
 	// Generate an env_id for this environment.
 	generation = (e->env_id + (1 << ENVGENSHIFT)) & ~(NENV - 1);
@@ -269,12 +289,30 @@ env_alloc(struct Env **newenv_store, envid_t parent_id)
 // Pages should be writable by user and kernel.
 // Panic if any allocation attempt fails.
 //
+// 分配物理页面时不初始化为0
 static void
 region_alloc(struct Env *e, void *va, size_t len)
 {
+	
+	// 需要将启始地址和最终地址对齐
 	// LAB 3: Your code here.
 	// (But only if you need it for load_icode.)
-	//
+	uintptr_t vaddr_start = (uintptr_t)ROUNDDOWN((uintptr_t)va, PGSIZE);
+	uintptr_t vaddr_end =  (uintptr_t)ROUNDUP((uintptr_t)va + len, PGSIZE);
+	struct PageInfo *p = NULL;
+	for (uintptr_t i = vaddr_start; i < vaddr_end; i += PGSIZE) {
+		p = page_alloc(0);
+		if (!p) {
+			page_free(p);
+			panic(" env.c : region alloc, allocation failed.\n");
+		}
+
+		int ret = page_insert(e->env_pgdir, p, (void*)i, PTE_W | PTE_U);
+		if (ret != 0) {
+			page_free(p);
+			panic(" env.c: region alloc, allocation failed.\n");
+		}
+	}
 	// Hint: It is easier to use region_alloc if the caller can pass
 	//   'va' and 'len' values that are not page-aligned.
 	//   You should round va down, and round (va + len) up.
@@ -286,7 +324,7 @@ region_alloc(struct Env *e, void *va, size_t len)
 // for a user process.
 // This function is ONLY called during kernel initialization,
 // before running the first user-mode environment.
-//
+// 这个函数只在内核初始化的时候被调用
 // This function loads all loadable segments from the ELF binary image
 // into the environment's user memory, starting at the appropriate
 // virtual addresses indicated in the ELF program header.
@@ -317,7 +355,7 @@ load_icode(struct Env *e, uint8_t *binary)
 	//  ph->p_va.  Any remaining memory bytes should be cleared to zero.
 	//  (The ELF header should have ph->p_filesz <= ph->p_memsz.)
 	//  Use functions from the previous lab to allocate and map pages.
-	//
+	//  
 	//  All page protection bits should be user read/write for now.
 	//  ELF segments are not necessarily page-aligned, but you can
 	//  assume for this function that no two segments will touch
@@ -333,13 +371,43 @@ load_icode(struct Env *e, uint8_t *binary)
 	//  You must also do something with the program's entry point,
 	//  to make sure that the environment starts executing there.
 	//  What?  (See env_run() and env_pop_tf() below.)
-
+	// 权限 ：可读写
 	// LAB 3: Your code here.
+	
+	struct Elf* elf = (struct Elf *) binary;
+	if (elf->e_magic != ELF_MAGIC) {
+		panic("env.c : load_icode, elf header magic number wrong!\n");
+	}
+
+	struct Proghdr *ph, *eph;
+	ph = (struct Proghdr *) ((uint8_t *)elf + elf->e_phoff);
+	eph = ph + elf->e_phnum;
+
+	e->env_tf.tf_eip = elf->e_entry; // 设置新环境的初始运行地址
+	cprintf("env_tf.tf_eip = %x\n",elf->e_entry);
+	lcr3(PADDR(e->env_pgdir)); // 这一行只要在for之前，是不是加在哪里都可以？ 从partA的测试结果来看，是的。 这方便了 memmove、memset的操作
+	
+	for (; ph < eph; ph++) {
+		if (ph->p_type == ELF_PROG_LOAD) {
+			if(ph->p_memsz - ph->p_filesz < 0) {
+				panic("env.c : load icode, failed : p_memsz < p_filesz.\n");
+			}
+			// 先使用region 分配物理页和建立映射
+			region_alloc(e, (void*)ph->p_va, ph->p_memsz);
+			// 然后将binary中的内容拷贝到va 中,大小为p_filesz
+			memmove((void*)ph->p_va, (void*)(binary + ph->p_offset), ph->p_filesz);
+			// 然后将 p_memsz 大于p_filesz的部分置零， 这里应该是bss段？
+			memset((void *)(ph->p_va + ph->p_filesz), 0, ph->p_memsz - ph->p_filesz);
+		}		
+	}
 
 	// Now map one page for the program's initial stack
 	// at virtual address USTACKTOP - PGSIZE.
-
+	region_alloc(e,(void *)(USTACKTOP-PGSIZE), PGSIZE);
 	// LAB 3: Your code here.
+
+
+	lcr3(PADDR(kern_pgdir)); // 切换回kernel的pgdir
 }
 
 //
@@ -353,6 +421,13 @@ void
 env_create(uint8_t *binary, enum EnvType type)
 {
 	// LAB 3: Your code here.
+	struct Env* e;
+	int ret;
+	if((ret = env_alloc(&e, 0)) < 0)  {
+		 panic("env.c : env_create failed: env_alloc failed.\n");
+	}
+	load_icode(e, binary);
+	e->env_type = type;
 }
 
 //
@@ -446,13 +521,13 @@ env_pop_tf(struct Trapframe *tf)
 	curenv->env_cpunum = cpunum();
 
 	asm volatile(
-		"\tmovl %0,%%esp\n"
+		"\tmovl %0,%%esp\n" // esp 指向trapframe 末尾
 		"\tpopal\n"
 		"\tpopl %%es\n"
 		"\tpopl %%ds\n"
 		"\taddl $0x8,%%esp\n" /* skip tf_trapno and tf_errcode */
-		"\tiret\n"
-		: : "g" (tf) : "memory");
+		"\tiret\n"// 从中断返回， eip 在load_icode()设置 或者 在trapentry.S中保存
+		: : "g" (tf) : "memory"); 
 	panic("iret failed");  /* mostly to placate the compiler */
 }
 
@@ -483,7 +558,14 @@ env_run(struct Env *e)
 	//	e->env_tf to sensible values.
 
 	// LAB 3: Your code here.
-
+	if (curenv && curenv->env_status == ENV_RUNNING) {
+		curenv->env_status = ENV_RUNNABLE;
+	}
+	curenv = e;
+	curenv->env_status = ENV_RUNNING;
+	curenv->env_runs++;
+	lcr3(PADDR(curenv->env_pgdir));
+	env_pop_tf(&(curenv->env_tf)); // 不会返回
 	panic("env_run not yet implemented");
 }
 

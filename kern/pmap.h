@@ -24,7 +24,7 @@ extern pde_t *kern_pgdir;
  * non-kernel virtual address.
  */
 #define PADDR(kva) _paddr(__FILE__, __LINE__, kva)
-
+//  KERNBASE = 0xf0000000
 static inline physaddr_t
 _paddr(const char *file, int line, void *kva)
 {
@@ -74,6 +74,7 @@ page2pa(struct PageInfo *pp)
 	return (pp - pages) << PGSHIFT;
 }
 
+// 计算pa在pages数组中的索引，然后索引值 * 4096 = 物理地址
 static inline struct PageInfo*
 pa2page(physaddr_t pa)
 {
