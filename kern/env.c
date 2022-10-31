@@ -1,5 +1,6 @@
 /* See COPYRIGHT for copyright information. */
 
+#include "spinlock.h"
 #include <inc/x86.h>
 #include <inc/mmu.h>
 #include <inc/error.h>
@@ -36,6 +37,15 @@ static struct Env *env_free_list;	// Free environment list
 // definition of gdt specifies the Descriptor Privilege Level (DPL)
 // of that descriptor: 0 for kernel and 3 for user.
 //
+// 0 : null
+// 1 : 内核text
+// 2 : 内核da它
+// 3 : 用户text
+// 4 : 用户data
+// 5 : cpu0_tss0
+// 6 : cpu1_tss0
+// ...
+// 12: cpu7_tss0
 struct Segdesc gdt[NCPU + 5] =
 {
 	// 0x0 - unused (always faults -- for trapping NULL far pointers)
@@ -384,7 +394,7 @@ load_icode(struct Env *e, uint8_t *binary)
 	eph = ph + elf->e_phnum;
 
 	e->env_tf.tf_eip = elf->e_entry; // 设置新环境的初始运行地址
-	cprintf("env_tf.tf_eip = %x\n",elf->e_entry);
+	// cprintf("env_tf.tf_eip = %x\n",elf->e_entry);
 	lcr3(PADDR(e->env_pgdir)); // 这一行只要在for之前，是不是加在哪里都可以？ 从partA的测试结果来看，是的。 这方便了 memmove、memset的操作
 	
 	for (; ph < eph; ph++) {
@@ -565,6 +575,7 @@ env_run(struct Env *e)
 	curenv->env_status = ENV_RUNNING;
 	curenv->env_runs++;
 	lcr3(PADDR(curenv->env_pgdir));
+	unlock_kernel();
 	env_pop_tf(&(curenv->env_tf)); // 不会返回
 	panic("env_run not yet implemented");
 }

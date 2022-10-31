@@ -162,6 +162,9 @@ mpconfig(struct mp **pmp)
 	return conf;
 }
 
+// Before booting up APs, the BSP should first collect information about the multiprocessor system, 
+// such as the total number of CPUs, their APIC IDs and the MMIO address of the LAPIC unit.
+// i386_init 由BSPi386_init()调用
 void
 mp_init(void)
 {

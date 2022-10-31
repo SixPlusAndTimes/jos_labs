@@ -218,6 +218,11 @@ mem_init(void)
 	// 映射内核栈
     // 只映射8KB，剩下的不映射，作为ieguard page，在page overflow 时有用
 	boot_map_region(kern_pgdir, KSTACKTOP - KSTKSIZE, KSTKSIZE, PADDR(bootstack), PTE_W | PTE_P);
+
+	// lab4
+	// Initialize the SMP-related parts of the memory map
+	mem_init_mp();
+
 	//////////////////////////////////////////////////////////////////////
 	// Map all of physical memory at KERNBASE.
 	// Ie.  the VA range [KERNBASE, 2^32) should map to
@@ -226,10 +231,6 @@ mem_init(void)
 	// we just set up the mapping anyway.
 	// Permissions: kernel RW, user NONE
 	// Your code goes here:
-
-	// Initialize the SMP-related parts of the memory map
-	mem_init_mp();
-
 	// 映射内核
 	boot_map_region(kern_pgdir, KERNBASE, 0xffffffff - KERNBASE, 0, PTE_W | PTE_P);
 	// Check that the initial page directory has been set up correctly.
@@ -279,6 +280,10 @@ mem_init_mp(void)
 	//     Permissions: kernel RW, user NONE
 	//
 	// LAB 4: Your code here:
+	for(int i=0; i<NCPU; i++){
+		uint32_t kstacktop_i = KSTACKTOP - i*(KSTKSIZE + KSTKGAP);
+		boot_map_region(kern_pgdir,kstacktop_i-KSTKSIZE,KSTKSIZE,PADDR(&percpu_kstacks[i]),PTE_W);	
+	}
 
 }
 
@@ -320,6 +325,7 @@ page_init(void)
 	// free pages!
 	// 第0页被占用， 
 	// IO hole 被占用 (0x100000 - 0x0A0000) / 4  / 1024 = 96
+	// lab4 MPENTRY_PADDR 以上的部分被占用
 	// cprintf("init () \n");
 	size_t i;
 	page_free_list = NULL;
@@ -336,6 +342,9 @@ page_init(void)
 		else if(i >= npages_basemem && i < npages_basemem + num_iohole + num_alloc)
 		{
 			pages[i].pp_ref = 1;
+		} else if (i * PGSIZE == MPENTRY_PADDR) {
+			// lab4
+			pages[i].pp_ref= 1;
 		}
 		else
 		{
@@ -612,7 +621,7 @@ mmio_map_region(physaddr_t pa, size_t size)
 	// value will be preserved between calls to mmio_map_region
 	// (just like nextfree in boot_alloc).
 	static uintptr_t base = MMIOBASE;
-
+	uintptr_t old_base = base;
 	// Reserve size bytes of virtual memory starting at base and
 	// map physical pages [pa,pa+size) to virtual addresses
 	// [base,base+size).  Since this is device memory and not
@@ -631,7 +640,18 @@ mmio_map_region(physaddr_t pa, size_t size)
 	// Hint: The staff solution uses boot_map_region.
 	//
 	// Your code here:
-	panic("mmio_map_region not implemented");
+	// panic("mmio_map_region not implemented");
+
+	uintptr_t pa_start = (uintptr_t)ROUNDDOWN((uintptr_t)pa, PGSIZE);
+	uintptr_t pa_end =  (uintptr_t)ROUNDUP((uintptr_t)pa + size, PGSIZE);
+	// cprintf("in mmio map, pa_start = %x, pa_end = %x\n",pa_start, pa_end);
+	if (pa_end - pa_start > PTSIZE) {
+		panic("overflow MMIOLIM!\n");
+	}
+	// PTE_PCD|PTE_PWT (cache-disable and write-through)
+	boot_map_region(kern_pgdir, base, pa_end - pa_start,  pa_start, PTE_PCD|PTE_PWT|PTE_W);
+	base += pa_end - pa_start;
+	return (void*)old_base;
 }
 
 static uintptr_t user_mem_check_addr;
@@ -658,9 +678,9 @@ int
 user_mem_check(struct Env *env, const void *va, size_t len, int perm)
 {
 	// LAB 3: Your code here.
-	cprintf("user_mem_check, passed va = %x\n",va);
+	// cprintf("user_mem_check, passed va = %x\n",va);
 	uintptr_t vaddr_start = (uintptr_t)ROUNDDOWN((uintptr_t)va, PGSIZE);
-	cprintf("user_mem_check, ROUNDDOWN passed va = %x\n",vaddr_start);
+	// cprintf("user_mem_check, ROUNDDOWN passed va = %x\n",vaddr_start);
 	uintptr_t vaddr_end =  (uintptr_t)ROUNDUP((uintptr_t)va + len, PGSIZE);
 	for (uintptr_t i = vaddr_start; i < vaddr_end; i += PGSIZE) {
 		pte_t* pte =  pgdir_walk(env->env_pgdir, (void*)i, 0);
@@ -1104,8 +1124,11 @@ check_page(void)
 	page_free(pp2);
 
 	// test mmio_map_region
+	cprintf("test mmio_map_region\n");
 	mm1 = (uintptr_t) mmio_map_region(0, 4097);
+	cprintf("mm1 = %x\n", mm1);
 	mm2 = (uintptr_t) mmio_map_region(0, 4096);
+	cprintf("mm2 = %x\n", mm2);
 	// check that they're in the right region
 	assert(mm1 >= MMIOBASE && mm1 + 8192 < MMIOLIM);
 	assert(mm2 >= MMIOBASE && mm2 + 8192 < MMIOLIM);
