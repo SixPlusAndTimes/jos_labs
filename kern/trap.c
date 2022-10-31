@@ -1,3 +1,4 @@
+#include "env.h"
 #include <inc/mmu.h>
 #include <inc/x86.h>
 #include <inc/assert.h>
@@ -273,6 +274,7 @@ trap(struct Trapframe *tf)
 		// LAB 4: Your code here.
 		assert(curenv);
 		lock_kernel();
+		// cprintf("trap.c trap() get kernel lock\n");
 		// Garbage collect if current enviroment is a zombie
 		if (curenv->env_status == ENV_DYING) {
 			env_free(curenv);
@@ -323,18 +325,7 @@ page_fault_handler(struct Trapframe *tf)
 		// f->trapno, cpuid(), tf->eip, rcr2());
 		panic("page_fault in kernel, fault address %d\n", fault_va);
 	}
-	// struct PageInfo * mem = page_alloc(ALLOC_ZERO);
-	// if(mem == 0){
-    //     cprintf("trap.c : page_fault_handler, page_alloc failed!\n");
-    //     page_free(mem);
-    //   } else {
-	// 	if (page_insert(curenv->env_pgdir, mem, (void*)fault_va, PTE_P|PTE_U|PTE_W) < 0) {
-	// 		cprintf("trap.c : page_fault_handler, page_insert failed!\n");
-	// 		page_free(mem);
-	// 	}else {
-	// 		return;
-	// 	}
-    //   }
+
 	// We've already handled kernel-mode exceptions, so if we get here,
 	// the page fault happened in user mode.
 
@@ -368,6 +359,36 @@ page_fault_handler(struct Trapframe *tf)
 	//   (the 'tf' variable points at 'curenv->env_tf').
 
 	// LAB 4: Your code here.
+	struct UTrapframe *utf;
+	if (curenv->env_pgfault_upcall) {
+		if (tf->tf_esp < UXSTACKTOP && tf->tf_esp >= UXSTACKTOP - PGSIZE) {
+			// 如果发生缺页异常时，用户栈已经是异常栈了
+			utf = (struct UTrapframe *)(tf->tf_esp- sizeof(struct UTrapframe) - 4); // 空一字节
+		} else {
+			// 如果是首次发生缺页异常
+			utf = (struct UTrapframe *)(UXSTACKTOP - sizeof(struct UTrapframe));
+		}
+
+		// 防止栈溢出
+		user_mem_assert(curenv, (const void *)utf, sizeof(struct UTrapframe), PTE_W);
+
+		// 设置异常栈
+		utf->utf_fault_va = fault_va;
+		utf->utf_err = tf->tf_trapno; 
+		utf->utf_regs = tf->tf_regs;
+		utf->utf_eflags = tf->tf_eflags;
+		utf->utf_eip = tf->tf_eip;
+		utf->utf_esp = tf->tf_esp; 	
+
+		// 设置中断返回的两个重要寄存器， esp 和 eip
+		// 中断返回时的用户程序的栈在UXSTACKTOP下，而EIP指向pfentry.S的__pgfault_upcall
+		// 
+		tf->tf_esp = (uintptr_t)utf;
+		tf->tf_eip = (uintptr_t)curenv->env_pgfault_upcall;
+		// 从中断返回
+		env_run(curenv);
+	}
+
 
 	// Destroy the environment that caused the fault.
 	cprintf("[%08x] user fault va %08x ip %08x\n",

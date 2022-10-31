@@ -30,9 +30,12 @@ duppage(envid_t dstenv, void *addr)
 	// This is NOT what you should do in your fork.
 	if ((r = sys_page_alloc(dstenv, addr, PTE_P|PTE_U|PTE_W)) < 0)
 		panic("sys_page_alloc: %e", r);
+	// 不同进程的不同虚拟地址，映射到了相同的物理地址
 	if ((r = sys_page_map(dstenv, addr, 0, UTEMP, PTE_P|PTE_U|PTE_W)) < 0)// woc! 进程间通信？
 		panic("sys_page_map: %e", r);
+	// 此时就可以用虚拟地址执行memmove函数了
 	memmove(UTEMP, addr, PGSIZE); // woc! 进程间通信？
+	// 拷贝完后，解除父进程的临时映射
 	if ((r = sys_page_unmap(0, UTEMP)) < 0)
 		panic("sys_page_unmap: %e", r);
 }

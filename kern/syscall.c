@@ -95,7 +95,7 @@ sys_exofork(void)
 		return env_alloc_ret;
 	}
 	new_env->env_status = ENV_NOT_RUNNABLE;
-	memcpy(&new_env->env_tf,&curenv->env_tf,sizeof(new_env->env_tf));// 我靠，这忘了写了。 导致在 va = 0时pagefault，为什么返回0虚拟地址，就是因为trapframe中的 eip没有设置
+	memmove(&new_env->env_tf,&curenv->env_tf,sizeof(new_env->env_tf));// 我靠，这忘了写了。 导致在 va = 0时pagefault，为什么返回0虚拟地址，就是因为trapframe中的 eip没有设置
 	new_env->env_tf.tf_regs.reg_eax = 0; // fork出来的新env的返回值是0
 	return new_env->env_id; // 父进程(env)的返回值是子进程的env_id
 
@@ -143,7 +143,12 @@ static int
 sys_env_set_pgfault_upcall(envid_t envid, void *func)
 {
 	// LAB 4: Your code here.
-	panic("sys_env_set_pgfault_upcall not implemented");
+	struct Env *e;  
+    if (envid2env(envid, &e, 1) <0)  
+        return -E_BAD_ENV;   
+    e->env_pgfault_upcall = func;  
+    return 0;
+	// panic("sys_env_set_pgfault_upcall not implemented");
 }
 
 // Allocate a page of memory and map it at 'va' with permission
@@ -395,6 +400,8 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 		    return sys_page_unmap((envid_t) a1, (void *)a2);
 		case SYS_env_set_status:
 			return sys_env_set_status((envid_t) a1, (int) a2);
+		case SYS_env_set_pgfault_upcall:
+			return sys_env_set_pgfault_upcall((envid_t) a1, (void *)a2);
 		default:
 			return -E_INVAL;
 	}
