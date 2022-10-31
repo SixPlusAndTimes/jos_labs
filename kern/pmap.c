@@ -562,7 +562,7 @@ page_lookup(pde_t *pgdir, void *va, pte_t **pte_store)
 	if(!pte)
 		return NULL;
 	if(pte_store != 0)
-		*pte_store=pte; // 这是啥?
+		*pte_store=pte; 
 	return pa2page(PTE_ADDR(*pte));
 }
 
@@ -700,7 +700,6 @@ user_mem_check(struct Env *env, const void *va, size_t len, int perm)
 		// }
 		if ((*pte & PTE_P) == 0) {
 			// buggy hello 和 buggy hello2 在这里
-			// 因为我们根本没有映射 env中的用户部分
 			user_mem_check_addr = (i < (uintptr_t)va? (uintptr_t)va : i);
 			cprintf("pmap.c: user_mem_check failed, PTE_P not valid\n");
 			return -E_FAULT;
