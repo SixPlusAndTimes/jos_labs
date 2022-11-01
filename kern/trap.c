@@ -74,26 +74,35 @@ trap_init(void)
 
 	// LAB 3: Your code here.
 	// SETGATE(idt向量, 是否是trap，选择子，入口函数指针， 特权级)
-	// 如果是trap，那么异常发生时，不会将 IF位置0（即关中断）
-	SETGATE(idt[T_DIVIDE], 1, GD_KT, divide_handler, 0);
-	SETGATE(idt[T_DEBUG], 1, GD_KT, debug_handler, 0);
-	SETGATE(idt[T_NMI], 1, GD_KT, nmi_handler, 0);
+	// 如果是trap，那么异常发生时，不会将 IF位置0（即不响应外部设备的中断）
+	// 在lab4 的exercise13后，把istrap全都改称了0, 也就是说无论异常、软件中断还是外部硬件中断，都是通过中断门实现的，进入内核会自动关闭外部中断
+	SETGATE(idt[T_DIVIDE], 0, GD_KT, divide_handler, 0);
+	SETGATE(idt[T_DEBUG], 0, GD_KT, debug_handler, 0);
+	SETGATE(idt[T_NMI], 0, GD_KT, nmi_handler, 0);
 	SETGATE(idt[T_BRKPT], 0, GD_KT, brkpt_handler, 3);
-	SETGATE(idt[T_OFLOW], 1, GD_KT, oflow_handler, 0);
-	SETGATE(idt[T_BOUND], 1, GD_KT, bound_handler, 0);
-	SETGATE(idt[T_ILLOP], 1, GD_KT, illop_handler, 0);
-	SETGATE(idt[T_DEVICE], 1, GD_KT, device_handler, 0);
-	SETGATE(idt[T_DBLFLT], 1, GD_KT, dblflt_handler, 0);
-	SETGATE(idt[T_TSS], 1, GD_KT, tss_handler, 0);
-	SETGATE(idt[T_SEGNP], 1, GD_KT, segnp_handler, 0);
-	SETGATE(idt[T_STACK], 1, GD_KT, stack_handler, 0);
-	SETGATE(idt[T_GPFLT], 1, GD_KT, gpflt_handler, 0);
-	SETGATE(idt[T_PGFLT], 1, GD_KT, pgflt_handler, 0);
-	SETGATE(idt[T_FPERR], 1, GD_KT, fperr_handler, 0);
-	SETGATE(idt[T_ALIGN], 1, GD_KT, align_handler, 0);
-	SETGATE(idt[T_MCHK], 1, GD_KT, mchk_handler, 0);
-	SETGATE(idt[T_SIMDERR], 1, GD_KT, simderr_handler, 0);
+	SETGATE(idt[T_OFLOW], 0, GD_KT, oflow_handler, 0);
+	SETGATE(idt[T_BOUND], 0, GD_KT, bound_handler, 0);
+	SETGATE(idt[T_ILLOP], 0, GD_KT, illop_handler, 0);
+	SETGATE(idt[T_DEVICE], 0, GD_KT, device_handler, 0);
+	SETGATE(idt[T_DBLFLT], 0, GD_KT, dblflt_handler, 0);
+	SETGATE(idt[T_TSS], 0, GD_KT, tss_handler, 0);
+	SETGATE(idt[T_SEGNP], 0, GD_KT, segnp_handler, 0);
+	SETGATE(idt[T_STACK], 0, GD_KT, stack_handler, 0);
+	SETGATE(idt[T_GPFLT], 0, GD_KT, gpflt_handler, 0);
+	SETGATE(idt[T_PGFLT], 0, GD_KT, pgflt_handler, 0);
+	SETGATE(idt[T_FPERR], 0, GD_KT, fperr_handler, 0);
+	SETGATE(idt[T_ALIGN], 0, GD_KT, align_handler, 0);
+	SETGATE(idt[T_MCHK], 0, GD_KT, mchk_handler, 0);
+	SETGATE(idt[T_SIMDERR], 0, GD_KT, simderr_handler, 0);
 	SETGATE(idt[T_SYSCALL], 0, GD_KT, syscall_handler, 3);
+
+	//外部设备中断在内核中总是禁用的(和xv6一样，在用户空间中启用)
+	SETGATE(idt[IRQ_OFFSET+IRQ_ERROR], 0, GD_KT, irq_error_handler, 3);
+	SETGATE(idt[IRQ_OFFSET+IRQ_IDE], 0, GD_KT, irq_ide_handler, 3);
+	SETGATE(idt[IRQ_OFFSET+IRQ_KBD], 0, GD_KT, irq_kbd_handler, 3);
+	SETGATE(idt[IRQ_OFFSET+IRQ_SERIAL], 0, GD_KT, irq_serial_handler, 3);
+	SETGATE(idt[IRQ_OFFSET+IRQ_SPURIOUS], 0, GD_KT, irq_spurious_handler, 3); //spurious假的，伪造的
+	SETGATE(idt[IRQ_OFFSET+IRQ_TIMER], 0, GD_KT, irq_timer_handler, 3);
 	// Per-CPU setup 
 	trap_init_percpu();
 }
@@ -224,7 +233,10 @@ trap_dispatch(struct Trapframe *tf)
 		// Handle clock interrupts. Don't forget to acknowledge the
 		// interrupt using lapic_eoi() before calling the scheduler!
 		// LAB 4: Your code here.
-		
+		case IRQ_OFFSET+IRQ_TIMER:
+			lapic_eoi();
+			sched_yield();
+			break;
 		default:
 			// Unexpected trap: The user process or the kernel has a bug.
 			print_trapframe(tf);

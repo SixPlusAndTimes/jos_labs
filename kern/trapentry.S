@@ -67,6 +67,15 @@ TRAPHANDLER_NOEC(align_handler, T_ALIGN);
 TRAPHANDLER_NOEC(mchk_handler, T_MCHK);
 TRAPHANDLER_NOEC(simderr_handler, T_SIMDERR);
 TRAPHANDLER_NOEC(syscall_handler, T_SYSCALL);
+
+// lab 4 外部设备中断的处理函数
+TRAPHANDLER_NOEC(irq_error_handler, IRQ_OFFSET+IRQ_ERROR);
+TRAPHANDLER_NOEC(irq_ide_handler, IRQ_OFFSET+IRQ_IDE);
+TRAPHANDLER_NOEC(irq_kbd_handler, IRQ_OFFSET+IRQ_KBD);
+TRAPHANDLER_NOEC(irq_serial_handler, IRQ_OFFSET+IRQ_SERIAL);
+TRAPHANDLER_NOEC(irq_spurious_handler, IRQ_OFFSET+IRQ_SPURIOUS);
+TRAPHANDLER_NOEC(irq_timer_handler, IRQ_OFFSET+IRQ_TIMER);
+
 /*
  * Lab 3: Your code here for _alltraps
  */
@@ -82,15 +91,4 @@ _alltraps :
 		pushl %esp 
 
 		call trap
-  		; addl $4, %esp
-
-; # Return falls through to trapret...
-; .globl trapret
-; trapret:
-;   popal
-;   popl %gs
-;   popl %fs
-;   popl %es
-;   popl %ds
-;   addl $0x8, %esp  # 跳过 trapno 和 errcode
-;   iret # 返回用户空间
+ 
