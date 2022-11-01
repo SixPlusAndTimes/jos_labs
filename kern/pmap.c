@@ -1009,7 +1009,7 @@ check_page(void)
 	page_free(pp0);
 	assert(page_insert(kern_pgdir, pp1, 0x0, PTE_W) == 0);
 	assert(PTE_ADDR(kern_pgdir[0]) == page2pa(pp0));
-	cprintf("va 0x0 to pa = %x, but equals = %x\n", check_va2pa(kern_pgdir, 0x0), page2pa(pp1));
+	// cprintf("va 0x0 to pa = %x, but equals = %x\n", check_va2pa(kern_pgdir, 0x0), page2pa(pp1));
 	assert(check_va2pa(kern_pgdir, 0x0) == page2pa(pp1));
 	assert(pp1->pp_ref == 1);
 	assert(pp0->pp_ref == 1);
@@ -1123,11 +1123,11 @@ check_page(void)
 	page_free(pp2);
 
 	// test mmio_map_region
-	cprintf("test mmio_map_region\n");
+	// cprintf("test mmio_map_region\n");
 	mm1 = (uintptr_t) mmio_map_region(0, 4097);
-	cprintf("mm1 = %x\n", mm1);
+	// cprintf("mm1 = %x\n", mm1);
 	mm2 = (uintptr_t) mmio_map_region(0, 4096);
-	cprintf("mm2 = %x\n", mm2);
+	// cprintf("mm2 = %x\n", mm2);
 	// check that they're in the right region
 	assert(mm1 >= MMIOBASE && mm1 + 8192 < MMIOLIM);
 	assert(mm2 >= MMIOBASE && mm2 + 8192 < MMIOLIM);

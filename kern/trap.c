@@ -361,13 +361,11 @@ page_fault_handler(struct Trapframe *tf)
 	// LAB 4: Your code here.
 	struct UTrapframe *utf;
 	if (curenv->env_pgfault_upcall) {
-		if (tf->tf_esp < UXSTACKTOP && tf->tf_esp >= UXSTACKTOP - PGSIZE) {
-			// 如果发生缺页异常时，用户栈已经是异常栈了
-			utf = (struct UTrapframe *)(tf->tf_esp- sizeof(struct UTrapframe) - 4); // 空一字节
-		} else {
-			// 如果是首次发生缺页异常
+		//发生异常时，用户环境已经在用户异常堆栈上运行，应该在当前tf->tf_esp下启动新的堆栈帧
+		if(tf->tf_esp<=UXSTACKTOP-1 && tf->tf_esp >=UXSTACKTOP-PGSIZE) 
+			utf = (struct UTrapframe *)(tf->tf_esp - sizeof(struct UTrapframe) -4);
+		else //否则，应该在UXSTACKTOP启动新的堆栈帧
 			utf = (struct UTrapframe *)(UXSTACKTOP - sizeof(struct UTrapframe));
-		}
 
 		// 防止栈溢出
 		user_mem_assert(curenv, (const void *)utf, sizeof(struct UTrapframe), PTE_W);
@@ -387,13 +385,12 @@ page_fault_handler(struct Trapframe *tf)
 		tf->tf_eip = (uintptr_t)curenv->env_pgfault_upcall;
 		// 从中断返回
 		env_run(curenv);
+	} else {
+		// Destroy the environment that caused the fault.
+		cprintf("[%08x] user fault va %08x ip %08x\n",
+			curenv->env_id, fault_va, tf->tf_eip);
+		print_trapframe(tf);
+		env_destroy(curenv);
 	}
-
-
-	// Destroy the environment that caused the fault.
-	cprintf("[%08x] user fault va %08x ip %08x\n",
-		curenv->env_id, fault_va, tf->tf_eip);
-	print_trapframe(tf);
-	env_destroy(curenv);
 }
 

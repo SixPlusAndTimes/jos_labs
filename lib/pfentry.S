@@ -88,3 +88,4 @@ _pgfault_upcall:
 	popl %esp 
 	// Return to re-execute the instruction that faulted.
 	// LAB 4: Your code here.
+	ret
