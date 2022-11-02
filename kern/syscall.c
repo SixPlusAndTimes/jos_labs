@@ -357,52 +357,37 @@ sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
 {
 	// LAB 4: Your code here.
 	int r;
-	struct Env *e;
-	pte_t* pte_to_send;
-	struct PageInfo* srcpp;
-	// 不检查是否是家族系进程 (No need to check permissions.)
-	r = envid2env(envid, &e, 0);
-	// if environment envid doesn't currently exist.
-	if (r < 0 ) 
-		return -E_BAD_ENV;
+	pte_t *pte;
+	struct PageInfo *pp;
+	struct Env *env;
 
-	// if envid is not currently blocked in sys_ipc_recv,or another environment managed to send first.
-	if (!e->env_ipc_recving || e->env_ipc_from) 
-		return -E_IPC_NOT_RECV;
-	// if srcva < UTOP 
-	if ((uintptr_t)srcva < UTOP) {
-		// but srcva is not page-aligned. 
-		if ((ROUNDDOWN((uintptr_t)srcva, PGSIZE) != (uintptr_t)srcva)) 
+	if ((r = envid2env(envid, &env, 0)) < 0)
+			return -E_BAD_ENV;
+	if (env->env_ipc_recving != true || env->env_ipc_from != 0)
+			return -E_IPC_NOT_RECV;
+	if (srcva < (void *)UTOP && PGOFF(srcva))
 			return -E_INVAL;
-		// but perm is inappropriate
-		//PTE_U | PTE_P must be set
-		if((perm & (PTE_U | PTE_P)) ==0)
-			return -E_INVAL;
-		//PTE_AVAIL | PTE_W may or may not be set, but no other bits may be set
-		if( perm  & ~PTE_SYSCALL )
-			return -E_INVAL;
-		
-		//but srcva is not mapped in the caller's address space.
-		srcpp = page_lookup(curenv->env_pgdir, srcva, &pte_to_send);
-		if(srcpp==NULL)
-			return -E_INVAL;
-		// if (perm & PTE_W), but srcva is read-only in the	current environment's address space.
-		if (!pte_to_send ||  (perm & PTE_W && !(*pte_to_send & PTE_W))) 
-			return -E_INVAL; 
-
-		r = page_insert(e->env_pgdir, srcpp, e->env_ipc_dstva, perm);
-		if (r < 0) 
-		 	return -E_NO_MEM;
-		
-		e->env_ipc_perm = perm;
+	if (srcva < (void *)UTOP) {
+			if ((perm & PTE_P) == 0 || (perm & PTE_U) == 0)
+					return -E_INVAL;
+			if ((perm & ~(PTE_P | PTE_U | PTE_W | PTE_AVAIL)) != 0)
+					return -E_INVAL;
 	}
-	e->env_ipc_recving = 0;
-	e->env_ipc_value = value;
-	e->env_ipc_from = curenv->env_id;
-	// 通信对端进程现在能够被调度然后返回用户态
-	e->env_status = ENV_RUNNABLE;
-	// 修改通信对端进程的中断返回值
-	e->env_tf.tf_regs.reg_eax=0;
+	if (srcva < (void *)UTOP && (pp = page_lookup(curenv->env_pgdir, srcva, &pte)) == NULL)
+			return -E_INVAL;
+	if (srcva < (void *)UTOP && (perm & PTE_W) != 0 && (*pte & PTE_W) == 0)
+			return -E_INVAL;
+	if (srcva < (void *)UTOP && env->env_ipc_dstva != 0) {
+			if ((r = page_insert(env->env_pgdir, pp, env->env_ipc_dstva, perm)) < 0)
+					return -E_NO_MEM;
+			env->env_ipc_perm = perm;
+	}
+
+	env->env_ipc_from = curenv->env_id;
+	env->env_ipc_recving = false;
+	env->env_ipc_value = value;
+	env->env_status = ENV_RUNNABLE;
+	env->env_tf.tf_regs.reg_eax = 0;
 	return 0;
 	// panic("sys_ipc_try_send not implemented");
 }
@@ -423,16 +408,12 @@ sys_ipc_recv(void *dstva)
 {
 	// LAB 4: Your code here.
 	// if dstva < UTOP but dstva is not page-aligned.
-	if((uintptr_t)dstva < UTOP && (ROUNDDOWN((uintptr_t)dstva, PGSIZE) != (uintptr_t)dstva))
-		return -E_INVAL;
-	// Only when dstva is below UTOP, record it in struct Env
-	if((uintptr_t)dstva < UTOP)
-		curenv->env_ipc_dstva = dstva;
-	
+	if (dstva < (void *)UTOP && PGOFF(dstva))
+			return -E_INVAL;
 	curenv->env_ipc_recving = true;
-	curenv->env_ipc_from = 0;
-	// mark yourself as not runnable, give up CPU
+	curenv->env_ipc_dstva = dstva;
 	curenv->env_status = ENV_NOT_RUNNABLE;
+	curenv->env_ipc_from = 0;
 	sched_yield();
 	return 0;
 }
