@@ -114,7 +114,8 @@ boot_alloc(uint32_t n)
 	if((uint32_t)nextfree - KERNBASE > (npages*PGSIZE))
 		panic("Out of memory!\n");
 	// cprintf("int boot alloc return, next free = %x \n", nextfree);
-	return nextfree;
+	// return nextfree;
+	return result;
 }
 
 // Set up a two-level page table:
