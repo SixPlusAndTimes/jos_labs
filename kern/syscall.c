@@ -185,24 +185,35 @@ sys_page_alloc(envid_t envid, void *va, int perm)
 	}
 
     // va 不与页对齐 或者 va大于UTOP
-	if((uintptr_t)va % PGSIZE !=0 || (uintptr_t)va >= UTOP)
+	if((uintptr_t)va % PGSIZE !=0 || (uintptr_t)va >= UTOP) {
+		// cprintf("sys_page_alloc failed :(uintptr_t)va % PGSIZE !=0 || (uintptr_t)va >= UTOP\n ");
 		return -E_INVAL;
+	}
+		
 
 	//PTE_U | PTE_P must be set
-	if((perm & (PTE_U | PTE_P)) ==0)
+	if((perm & (PTE_U | PTE_P)) ==0) {
+		// cprintf("sys_page_alloc failed :perm & (PTE_U | PTE_P)) ==0\n ");
 		return -E_INVAL;
+	}
+
 
 	//PTE_AVAIL | PTE_W may or may not be set, but no other bits may be set
-	if( perm  & ~PTE_SYSCALL)
+	if( perm  & ~PTE_SYSCALL) {
+		// cprintf("sys_page_alloc failed :perm  & ~PTE_SYSCALL\n ");
 		return -E_INVAL;
+	}
 
 	struct PageInfo *pp;
 	pp = page_alloc(1); //参数为1就是初始化页面内容为0。
-	if(!pp)
+	if(!pp) {
+		cprintf("sys_page_alloc failed :page_alloc\n ");
 		return -E_NO_MEM;
+	}
 
 	int ret_page_insert = page_insert(dstenv->env_pgdir, pp, va, perm);
 	if (ret_page_insert < 0) {
+		// cprintf("sys_page_alloc failed :page_insert\n ");
 		// 释放之前分配的页面
 		page_free(pp);
 		return ret_page_insert;
@@ -345,7 +356,55 @@ static int
 sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
 {
 	// LAB 4: Your code here.
-	panic("sys_ipc_try_send not implemented");
+	int r;
+	struct Env *e;
+	pte_t* pte_to_send;
+	struct PageInfo* srcpp;
+	// 不检查是否是家族系进程 (No need to check permissions.)
+	r = envid2env(envid, &e, 0);
+	// if environment envid doesn't currently exist.
+	if (r < 0 ) 
+		return -E_BAD_ENV;
+
+	// if envid is not currently blocked in sys_ipc_recv,or another environment managed to send first.
+	if (!e->env_ipc_recving || e->env_ipc_from) 
+		return -E_IPC_NOT_RECV;
+	// if srcva < UTOP 
+	if ((uintptr_t)srcva < UTOP) {
+		// but srcva is not page-aligned. 
+		if ((ROUNDDOWN((uintptr_t)srcva, PGSIZE) != (uintptr_t)srcva)) 
+			return -E_INVAL;
+		// but perm is inappropriate
+		//PTE_U | PTE_P must be set
+		if((perm & (PTE_U | PTE_P)) ==0)
+			return -E_INVAL;
+		//PTE_AVAIL | PTE_W may or may not be set, but no other bits may be set
+		if( perm  & ~PTE_SYSCALL )
+			return -E_INVAL;
+		
+		//but srcva is not mapped in the caller's address space.
+		srcpp = page_lookup(curenv->env_pgdir, srcva, &pte_to_send);
+		if(srcpp==NULL)
+			return -E_INVAL;
+		// if (perm & PTE_W), but srcva is read-only in the	current environment's address space.
+		if (!pte_to_send ||  (perm & PTE_W && !(*pte_to_send & PTE_W))) 
+			return -E_INVAL; 
+
+		r = page_insert(e->env_pgdir, srcpp, e->env_ipc_dstva, perm);
+		if (r < 0) 
+		 	return -E_NO_MEM;
+		
+		e->env_ipc_perm = perm;
+	}
+	e->env_ipc_recving = 0;
+	e->env_ipc_value = value;
+	e->env_ipc_from = curenv->env_id;
+	// 通信对端进程现在能够被调度然后返回用户态
+	e->env_status = ENV_RUNNABLE;
+	// 修改通信对端进程的中断返回值
+	e->env_tf.tf_regs.reg_eax=0;
+	return 0;
+	// panic("sys_ipc_try_send not implemented");
 }
 
 // Block until a value is ready.  Record that you want to receive
@@ -363,7 +422,18 @@ static int
 sys_ipc_recv(void *dstva)
 {
 	// LAB 4: Your code here.
-	panic("sys_ipc_recv not implemented");
+	// if dstva < UTOP but dstva is not page-aligned.
+	if((uintptr_t)dstva < UTOP && (ROUNDDOWN((uintptr_t)dstva, PGSIZE) != (uintptr_t)dstva))
+		return -E_INVAL;
+	// Only when dstva is below UTOP, record it in struct Env
+	if((uintptr_t)dstva < UTOP)
+		curenv->env_ipc_dstva = dstva;
+	
+	curenv->env_ipc_recving = true;
+	curenv->env_ipc_from = 0;
+	// mark yourself as not runnable, give up CPU
+	curenv->env_status = ENV_NOT_RUNNABLE;
+	sched_yield();
 	return 0;
 }
 
@@ -402,6 +472,10 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 			return sys_env_set_status((envid_t) a1, (int) a2);
 		case SYS_env_set_pgfault_upcall:
 			return sys_env_set_pgfault_upcall((envid_t) a1, (void *)a2);
+		case SYS_ipc_try_send:
+			return sys_ipc_try_send((envid_t) a1, (uint32_t) a2, (void *)a3, (unsigned) a4);
+		case SYS_ipc_recv:
+			return sys_ipc_recv((void *)a1);
 		default:
 			return -E_INVAL;
 	}

@@ -50,7 +50,7 @@ sched_yield(void)
 		//cprintf("i:%d cpu:%d id:%08x\n",i,cpunum(),cpus[cpunum()].cpu_env->env_id);
 		env_run(curenv);	
 	}
-
+	// nothing to do
 	// sched_halt never return
 	sched_halt();
 }
@@ -95,7 +95,7 @@ sched_halt(void)
 		"movl %0, %%esp\n"
 		"pushl $0\n"
 		"pushl $0\n"
-		// Uncomment the following line after completing exercise 13
+		// Uncomment the following line after completing exercise 13， 这样外部设备中断也能唤醒本cpu
 		"sti\n"
 		"1:\n"
 		"hlt\n"
