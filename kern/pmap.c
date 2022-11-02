@@ -339,7 +339,7 @@ page_init(void)
 		{
 			pages[i].pp_ref = 1;
 		}    
-		else if(i >= npages_basemem && i < npages_basemem + num_iohole + num_alloc)
+		else if(i >= npages_basemem && i < npages_basemem + num_alloc)
 		{
 			pages[i].pp_ref = 1;
 		} else if (i * PGSIZE == MPENTRY_PADDR) {
