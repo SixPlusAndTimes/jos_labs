@@ -20,6 +20,17 @@ pde_t *kern_pgdir;		// Kernel's initial page directory
 struct PageInfo *pages;		// Physical page state array
 static struct PageInfo *page_free_list;	// Free list of physical pages
 
+//debug
+static int 
+count_free_pages() {
+	int total = 0;
+	struct PageInfo* cur = page_free_list;
+	while (cur != NULL) {
+		cur = cur->pp_link;
+		total++;
+	}
+	return total;
+}
 
 // --------------------------------------------------------------
 // Detect machine's physical memory setup.
@@ -181,6 +192,7 @@ mem_init(void)
 	page_init();
 
 	check_page_free_list(1);
+	// cprintf("total pages after check_page_free_list(1 = %d\n", count_free_pages());
 	check_page_alloc();
 	check_page();
 
@@ -256,6 +268,7 @@ mem_init(void)
 
 	// Some more checks, only possible after kern_pgdir is installed.
 	check_page_installed_pgdir();
+	// cprintf("total pages after check_page_installed_pgdir = %d\n", count_free_pages());
 }
 
 // Modify mappings in kern_pgdir to support SMP
@@ -353,6 +366,7 @@ page_init(void)
 			page_free_list = &pages[i];
 		}
 	}
+	// cprintf("total pages after init page init = %d", count_free_pages());
 }
 
 //
@@ -370,6 +384,11 @@ page_init(void)
 struct PageInfo *
 page_alloc(int alloc_flags)
 {	// 本函数返回的pageinfo的ref总是等于0
+    // int static first = 1;
+	// if (first) {
+	// 	first = 0;
+	// 	cprintf("firts call page_alloc = %d\n", count_free_pages());
+	// }
 	if (page_free_list == NULL) {
 		return NULL;
 	}
@@ -380,6 +399,7 @@ page_alloc(int alloc_flags)
 	if (alloc_flags & ALLOC_ZERO) {
 		memset(page2kva(ret), 0, PGSIZE);
 	}
+	// cprintf("total pages after page_alloc = %d\n", count_free_pages());
 	return ret;
 }
 
@@ -396,9 +416,11 @@ page_free(struct PageInfo *pp)
 	    // Fill this function in
     // Hint: You may want to panic if pp->pp_ref is nonzero or
     // pp->pp_link is not NULL.
-      assert(pp->pp_ref == 0);
-      assert(pp->pp_link == NULL);
-
+    //   assert(pp->pp_ref == 0);
+    //   assert(pp->pp_link == NULL);
+	if(pp->pp_link || pp->pp_ref) {
+		panic("pp->pp_ref is nonzero or pp->pp_link is not NULL\n");
+	}
       pp->pp_link = page_free_list;
       page_free_list = pp;
 }
