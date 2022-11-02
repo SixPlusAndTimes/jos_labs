@@ -21,7 +21,7 @@ struct PageInfo *pages;		// Physical page state array
 static struct PageInfo *page_free_list;	// Free list of physical pages
 
 //debug
-static int 
+int 
 count_free_pages() {
 	int total = 0;
 	struct PageInfo* cur = page_free_list;
@@ -122,8 +122,8 @@ boot_alloc(uint32_t n)
 	result = nextfree;
 	// n 是字节数，nextfree的类型是char* ,正好对应上了
 	nextfree = ROUNDUP(nextfree+n, PGSIZE);
-	if((uint32_t)nextfree - KERNBASE > (npages*PGSIZE))
-		panic("Out of memory!\n");
+	// if((uint32_t)nextfree - KERNBASE > (npages*PGSIZE))
+	// 	panic("Out of memory!\n");
 	// cprintf("int boot alloc return, next free = %x \n", nextfree);
 	return nextfree;
 }
@@ -181,6 +181,7 @@ mem_init(void)
 	//////////////////////////////////////////////////////////////////////
 	// Make 'envs' point to an array of size 'NENV' of 'struct Env'.
 	// LAB 3: Your code here.
+	// boot_alloc(PGSIZE);
 	envs = (struct Env*)boot_alloc(sizeof(struct Env)*NENV);
 	memset(envs, 0, sizeof(struct Env)*NENV);
 	//////////////////////////////////////////////////////////////////////
@@ -207,7 +208,7 @@ mem_init(void)
 	//    - pages itself -- kernel RW, user NONE
 	// Your code goes here:
 	// 关于权限，如果没有 PTE_U,那么用户不可读，不可写
-	boot_map_region(kern_pgdir,UPAGES ,PTSIZE ,PADDR(pages),PTE_U | PTE_P);
+	boot_map_region(kern_pgdir,UPAGES ,PTSIZE ,PADDR(pages),PTE_U );
 	//////////////////////////////////////////////////////////////////////
 	// Map the 'envs' array read-only by the user at linear address UENVS
 	// (ie. perm = PTE_U | PTE_P).
@@ -229,7 +230,7 @@ mem_init(void)
 	// Your code goes here:
 	// 映射内核栈
     // 只映射8KB，剩下的不映射，作为ieguard page，在page overflow 时有用
-	boot_map_region(kern_pgdir, KSTACKTOP - KSTKSIZE, KSTKSIZE, PADDR(bootstack), PTE_W | PTE_P);
+	boot_map_region(kern_pgdir, KSTACKTOP - KSTKSIZE, KSTKSIZE, PADDR(bootstack), PTE_W );
 
 	// lab4
 	// Initialize the SMP-related parts of the memory map
@@ -244,7 +245,7 @@ mem_init(void)
 	// Permissions: kernel RW, user NONE
 	// Your code goes here:
 	// 映射内核
-	boot_map_region(kern_pgdir, KERNBASE, 0xffffffff - KERNBASE, 0, PTE_W | PTE_P);
+	boot_map_region(kern_pgdir, KERNBASE, 0xffffffff - KERNBASE, 0, PTE_W );
 	// Check that the initial page directory has been set up correctly.
 	check_kern_pgdir();
 
@@ -268,7 +269,7 @@ mem_init(void)
 
 	// Some more checks, only possible after kern_pgdir is installed.
 	check_page_installed_pgdir();
-	// cprintf("total pages after check_page_installed_pgdir = %d\n", count_free_pages());
+	cprintf("total pages after check_page_installed_pgdir = %d\n", count_free_pages());
 }
 
 // Modify mappings in kern_pgdir to support SMP
@@ -366,7 +367,7 @@ page_init(void)
 			page_free_list = &pages[i];
 		}
 	}
-	// cprintf("total pages after init page init = %d", count_free_pages());
+	cprintf("total pages after init page init = %d", count_free_pages());
 }
 
 //
@@ -399,7 +400,7 @@ page_alloc(int alloc_flags)
 	if (alloc_flags & ALLOC_ZERO) {
 		memset(page2kva(ret), 0, PGSIZE);
 	}
-	// cprintf("total pages after page_alloc = %d\n", count_free_pages());
+	cprintf("total pages after page_alloc = %d\n", count_free_pages());
 	return ret;
 }
 

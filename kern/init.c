@@ -15,7 +15,7 @@
 #include <kern/picirq.h>
 #include <kern/cpu.h>
 #include <kern/spinlock.h>
-
+#include <kern/pmap.h>
 static void boot_aps(void);
 
 
@@ -38,11 +38,12 @@ i386_init(void)
 	cprintf("bss end = %x, dataend = %x\n",end, edata);
 	// Lab 2 memory management initialization functions
 	mem_init();
-
+	cprintf("after mem_init free pages = %d\n",count_free_pages());
 	// Lab 3 user environment initialization functions
 	env_init();
+	cprintf("after env_init free pages = %d\n",count_free_pages());
 	trap_init();
-
+	cprintf("after trap_init free pages = %d\n",count_free_pages());
 	// Lab 4 multiprocessor initialization functions
 	mp_init();
 	lapic_init();
@@ -55,6 +56,7 @@ i386_init(void)
 
 	// Starting non-boot CPUs
 	lock_kernel(); // 获取内核大锁，防止多个cpu在内核中执行
+	cprintf("before boot aps free pages = %d\n",count_free_pages());
 	boot_aps();
 
 #if defined(TEST)

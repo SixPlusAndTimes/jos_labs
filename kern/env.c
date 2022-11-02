@@ -129,6 +129,7 @@ env_init(void)
 {
 	// Set up envs array
 	// LAB 3: Your code here.
+	cprintf("enter env_init%d\n",count_free_pages());
 	env_free_list = NULL;
 	for(int i=NENV-1; i>=0; i--){
 		envs[i].env_id = 0;
@@ -136,6 +137,7 @@ env_init(void)
 		envs[i].env_link = env_free_list;
 		env_free_list = &envs[i];
 	}
+	cprintf("before env_init: env_init_percpu free pages = %d\n",count_free_pages());
 	// Per-CPU part of the initialization
 	env_init_percpu();
 }
@@ -530,7 +532,7 @@ env_pop_tf(struct Trapframe *tf)
 {
 	// Record the CPU we are running on for user-space debugging
 	curenv->env_cpunum = cpunum();
-
+	unlock_kernel();
 	asm volatile(
 		"\tmovl %0,%%esp\n" // esp 指向trapframe 末尾
 		"\tpopal\n"
@@ -576,7 +578,7 @@ env_run(struct Env *e)
 	curenv->env_status = ENV_RUNNING;
 	curenv->env_runs++;
 	lcr3(PADDR(curenv->env_pgdir));
-	unlock_kernel();
+	// unlock_kernel();
 	env_pop_tf(&(curenv->env_tf)); // 不会返回
 	panic("env_run not yet implemented");
 }

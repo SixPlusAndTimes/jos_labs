@@ -50,6 +50,8 @@ enum {
 	// For page_alloc, zero the returned physical page.
 	ALLOC_ZERO = 1<<0,
 };
+// debug
+int count_free_pages(void) ;
 
 void	mem_init(void);
 
