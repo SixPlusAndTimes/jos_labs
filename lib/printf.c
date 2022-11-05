@@ -16,7 +16,7 @@
 // in order to make the lines output to the console atomic
 // and prevent interrupts from causing context switches
 // in the middle of a console output line and such.
-struct printbuf {
+struct printbuf { // 缓冲区，这个可以类比linux的prinf为什么在打印\n后才能在屏幕上显示
 	int idx;	// current buffer index
 	int cnt;	// total bytes printed so far
 	char buf[256];
@@ -28,6 +28,7 @@ putch(int ch, struct printbuf *b)
 {
 	b->buf[b->idx++] = ch;
 	if (b->idx == 256-1) {
+		// 如如果缓冲区满了，一次系统系统调用，打印全部缓冲区的内容
 		sys_cputs(b->buf, b->idx);
 		b->idx = 0;
 	}

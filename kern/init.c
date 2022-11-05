@@ -1,5 +1,6 @@
 /* See COPYRIGHT for copyright information. */
 
+#include "spinlock.h"
 #include <inc/stdio.h>
 #include <inc/string.h>
 #include <inc/assert.h>
@@ -14,26 +15,35 @@
 #include <kern/picirq.h>
 #include <kern/cpu.h>
 #include <kern/spinlock.h>
-
+#include <kern/pmap.h>
 static void boot_aps(void);
 
 
 void
 i386_init(void)
 {
+	extern char edata[], end[];
+
+	// Before doing anything else, complete the ELF loading process.
+	// Clear the uninitialized global data (BSS) section of our program.
+	// This ensures that all static/global variables start out zero.
+	
+	memset(edata, 0, end - edata);
+
 	// Initialize the console.
 	// Can't call cprintf until after we do this!
 	cons_init();
 
 	cprintf("6828 decimal is %o octal!\n", 6828);
-
+	cprintf("bss end = %x, dataend = %x\n",end, edata);
 	// Lab 2 memory management initialization functions
 	mem_init();
-
+	// cprintf("after mem_init free pages = %d\n",count_free_pages());
 	// Lab 3 user environment initialization functions
 	env_init();
+	// cprintf("after env_init free pages = %d\n",count_free_pages());
 	trap_init();
-
+	// cprintf("after trap_init free pages = %d\n",count_free_pages());
 	// Lab 4 multiprocessor initialization functions
 	mp_init();
 	lapic_init();
@@ -45,10 +55,12 @@ i386_init(void)
 	// Your code here:
 
 	// Starting non-boot CPUs
+	lock_kernel(); // 获取内核大锁，防止多个cpu在内核中执行
+	// cprintf("before boot aps free pages = %d\n",count_free_pages());
 	boot_aps();
 
 	// Start fs.
-	ENV_CREATE(fs_fs, ENV_TYPE_FS);
+	// ENV_CREATE(fs_fs, ENV_TYPE_FS);
 
 #if defined(TEST)
 	// Don't touch -- used by grading script!
@@ -104,7 +116,6 @@ mp_main(void)
 	// We are in high EIP now, safe to switch to kern_pgdir 
 	lcr3(PADDR(kern_pgdir));
 	cprintf("SMP: CPU %d starting\n", cpunum());
-
 	lapic_init();
 	env_init_percpu();
 	trap_init_percpu();
@@ -115,7 +126,8 @@ mp_main(void)
 	// only one CPU can enter the scheduler at a time!
 	//
 	// Your code here:
-
+	lock_kernel();
+	sched_yield();
 	// Remove this after you finish Exercise 6
 	for (;;);
 }

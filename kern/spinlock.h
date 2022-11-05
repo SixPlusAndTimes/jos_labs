@@ -31,6 +31,7 @@ static inline void
 lock_kernel(void)
 {
 	spin_lock(&kernel_lock);
+	// cprintf("")
 }
 
 static inline void

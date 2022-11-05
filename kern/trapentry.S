@@ -31,7 +31,7 @@
 
 /* Use TRAPHANDLER_NOEC for traps where the CPU doesn't push an error code.
  * It pushes a 0 in place of the error code, so the trap frame has the same
- * format in either case.
+ * format in either case. CPU不自动push error code的 exception，则调用这个宏，我们手动push一个0，作为error code
  */
 #define TRAPHANDLER_NOEC(name, num)					\
 	.globl name;							\
@@ -47,10 +47,48 @@
 /*
  * Lab 3: Your code here for generating entry points for the different traps.
  */
+ // 定义了很多函数用来处理exception, 这些函数在操作系统初始化时作为函数指针被写入对应的idt元素中
+TRAPHANDLER_NOEC(divide_handler, T_DIVIDE);
+TRAPHANDLER_NOEC(debug_handler, T_DEBUG);
+TRAPHANDLER_NOEC(nmi_handler, T_NMI);
+TRAPHANDLER_NOEC(brkpt_handler, T_BRKPT);
+TRAPHANDLER_NOEC(oflow_handler, T_OFLOW);
+TRAPHANDLER_NOEC(bound_handler, T_BOUND);
+TRAPHANDLER_NOEC(illop_handler, T_ILLOP);
+TRAPHANDLER_NOEC(device_handler, T_DEVICE);
+TRAPHANDLER(dblflt_handler, T_DBLFLT);
+TRAPHANDLER(tss_handler, T_TSS);
+TRAPHANDLER(segnp_handler, T_SEGNP);
+TRAPHANDLER(stack_handler, T_STACK);
+TRAPHANDLER(gpflt_handler, T_GPFLT);
+TRAPHANDLER(pgflt_handler, T_PGFLT);
+TRAPHANDLER_NOEC(fperr_handler, T_FPERR);
+TRAPHANDLER_NOEC(align_handler, T_ALIGN);
+TRAPHANDLER_NOEC(mchk_handler, T_MCHK);
+TRAPHANDLER_NOEC(simderr_handler, T_SIMDERR);
+TRAPHANDLER_NOEC(syscall_handler, T_SYSCALL);
 
-
+// lab 4 外部设备中断的处理函数
+TRAPHANDLER_NOEC(irq_error_handler, IRQ_OFFSET+IRQ_ERROR);
+TRAPHANDLER_NOEC(irq_ide_handler, IRQ_OFFSET+IRQ_IDE);
+TRAPHANDLER_NOEC(irq_kbd_handler, IRQ_OFFSET+IRQ_KBD);
+TRAPHANDLER_NOEC(irq_serial_handler, IRQ_OFFSET+IRQ_SERIAL);
+TRAPHANDLER_NOEC(irq_spurious_handler, IRQ_OFFSET+IRQ_SPURIOUS);
+TRAPHANDLER_NOEC(irq_timer_handler, IRQ_OFFSET+IRQ_TIMER);
 
 /*
  * Lab 3: Your code here for _alltraps
  */
+.global _alltraps
+_alltraps :
+		pushl %ds
+		pushl %es
+		pushal
+		movl $GD_KD, %edx
+		movl %edx, %ds
+		movl %edx, %es
 
+		pushl %esp 
+
+		call trap
+ 

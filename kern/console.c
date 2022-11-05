@@ -149,30 +149,34 @@ cga_init(void)
 		addr_6845 = MONO_BASE;
 	} else {
 		*cp = was;
+		// #define CGA_BASE	0x3D4
 		addr_6845 = CGA_BASE;
 	}
 
 	/* Extract cursor location */
+	// 获取光标的位置
 	outb(addr_6845, 14);
 	pos = inb(addr_6845 + 1) << 8;
 	outb(addr_6845, 15);
 	pos |= inb(addr_6845 + 1);
-
+	// 指向内存低1MB的现存上
 	crt_buf = (uint16_t*) cp;
+	// 光标的坐标
 	crt_pos = pos;
 }
 
 
-
+// 一个字符在屏幕上用两个字节表示，低字节是ascii字符，高字节表示其属性。属性可以制定字符的背景色，前景色
 static void
 cga_putc(int c)
 {
 	// if no attribute given, then use black on white
 	if (!(c & ~0xFF))
-		c |= 0x0700;
+		c |= 0x0700; // 07表示黑屏白字
 
-	switch (c & 0xff) {
+	switch (c & 0xff) {// 屏蔽高字节，处理低字节的ascii字符
 	case '\b':
+	// 退格键处理
 		if (crt_pos > 0) {
 			crt_pos--;
 			crt_buf[crt_pos] = (c & ~0xff) | ' ';
@@ -197,6 +201,8 @@ cga_putc(int c)
 	}
 
 	// What is the purpose of this?
+	// CRT_SIZE = 2000 = 80 * 25， 一个屏幕最多容纳2000个字符
+	// crt_pos 表示光标位置，那么下面的逻辑就是如果整个屏幕已经占满了，那么将整个屏幕的内容“上移一行”
 	if (crt_pos >= CRT_SIZE) {
 		int i;
 
@@ -207,6 +213,8 @@ cga_putc(int c)
 	}
 
 	/* move that little blinky thing */
+	// 移动光标，是的字符和光标的控制是不同的
+	// 把字符写在显存中就可以显示字符，而对于光标的控制我们需要读写显存寄存器的端口地址
 	outb(addr_6845, 14);
 	outb(addr_6845 + 1, crt_pos >> 8);
 	outb(addr_6845, 15);
@@ -437,12 +445,14 @@ cons_getc(void)
 }
 
 // output a character to the console
+// 这个函数的作用就是向屏幕输出一个字符，封装了对硬件的操作，提供了上层抽象
+// 为什么调用了3个函数？ 屏幕上显示的话，只使用第三个不就够了吗？
 static void
 cons_putc(int c)
 {
-	serial_putc(c);
-	lpt_putc(c);
-	cga_putc(c);
+	serial_putc(c); // 串口打印
+	lpt_putc(c);    // 并口打印
+	cga_putc(c); // 在屏幕上打印
 }
 
 // initialize the console devices
@@ -459,7 +469,7 @@ cons_init(void)
 
 
 // `High'-level console I/O.  Used by readline and cprintf.
-
+// 暴露给printf.c用的就是这个函数
 void
 cputchar(int c)
 {

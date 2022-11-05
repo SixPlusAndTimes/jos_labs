@@ -42,6 +42,7 @@ bootmain(void)
 	int i;
 
 	// read 1st page off disk
+	// 读4094个字节到 0x10000 之上， 这4096个字节包括elf文件的elf头表52字节，和3个程序头表，每个32字节。 使用这些信息将内核加载到物理内存中来
 	readseg((uint32_t) ELFHDR, SECTSIZE*8, 0);
 
 	// is this a valid ELF?
@@ -94,6 +95,7 @@ readseg(uint32_t pa, uint32_t count, uint32_t offset)
 		// an identity segment mapping (see boot.S), we can
 		// use physical addresses directly.  This won't be the
 		// case once JOS enables the MMU.
+		// 还没有开启分页，直接使用物理地址
 		readsect((uint8_t*) pa, offset);
 		pa += SECTSIZE;
 		offset++;

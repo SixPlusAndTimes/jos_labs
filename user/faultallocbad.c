@@ -20,5 +20,5 @@ void
 umain(int argc, char **argv)
 {
 	set_pgfault_handler(handler);
-	sys_cputs((char*)0xDEADBEEF, 4);
+	sys_cputs((char*)0xDEADBEEF, 4); // 直接系统调用会在 kernel里sys_cputs用user_mem_assert检查出错误，会直接被destroy
 }

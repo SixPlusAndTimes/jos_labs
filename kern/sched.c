@@ -1,9 +1,11 @@
+#include "env.h"
 #include <inc/assert.h>
 #include <inc/x86.h>
 #include <kern/spinlock.h>
 #include <kern/env.h>
 #include <kern/pmap.h>
 #include <kern/monitor.h>
+#include <kern/cpu.h>
 
 void sched_halt(void);
 
@@ -30,8 +32,27 @@ sched_yield(void)
 	// below to halt the cpu.
 
 	// LAB 4: Your code here.
-
-	// sched_halt never returns
+	int i=0,j;
+	//cprintf("i:%d cpu:%d\n",i,cpunum());
+	if(cpus[cpunum()].cpu_env)
+		i=ENVX(cpus[cpunum()].cpu_env->env_id);
+	//cprintf("i:%d\n",i);
+	
+	for(j=(i+1)%NENV; j!=i; j=(j+1)%NENV) {
+		if(envs[j].env_status == ENV_RUNNABLE)
+			env_run(&envs[j]);
+	}
+	//如果不加下面这个判断，就少判断了env[i]的状态
+	//这样当所有用户环境只剩env[i]的状态是ENV_RUNNABLE时，cpu无法运行env[i]也无法halt，就一直在循环
+	if(j==i && envs[j].env_status == ENV_RUNNABLE)
+		env_run(&envs[j]);
+	
+	if(curenv && curenv->env_status == ENV_RUNNING){
+		//cprintf("i:%d cpu:%d id:%08x\n",i,cpunum(),cpus[cpunum()].cpu_env->env_id);
+		env_run(curenv);	
+	}
+	// nothing to do
+	// sched_halt never return
 	sched_halt();
 }
 
@@ -75,8 +96,8 @@ sched_halt(void)
 		"movl %0, %%esp\n"
 		"pushl $0\n"
 		"pushl $0\n"
-		// Uncomment the following line after completing exercise 13
-		//"sti\n"
+		// Uncomment the following line after completing exercise 13， 这样外部设备中断也能唤醒本cpu
+		"sti\n"
 		"1:\n"
 		"hlt\n"
 		"jmp 1b\n"

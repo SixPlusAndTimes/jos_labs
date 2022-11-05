@@ -30,9 +30,12 @@ duppage(envid_t dstenv, void *addr)
 	// This is NOT what you should do in your fork.
 	if ((r = sys_page_alloc(dstenv, addr, PTE_P|PTE_U|PTE_W)) < 0)
 		panic("sys_page_alloc: %e", r);
-	if ((r = sys_page_map(dstenv, addr, 0, UTEMP, PTE_P|PTE_U|PTE_W)) < 0)
+	// 不同进程的不同虚拟地址，映射到了相同的物理地址
+	if ((r = sys_page_map(dstenv, addr, 0, UTEMP, PTE_P|PTE_U|PTE_W)) < 0)// woc! 进程间通信？
 		panic("sys_page_map: %e", r);
-	memmove(UTEMP, addr, PGSIZE);
+	// 此时就可以用虚拟地址执行memmove函数了
+	memmove(UTEMP, addr, PGSIZE); // woc! 进程间通信？
+	// 拷贝完后，解除父进程的临时映射
 	if ((r = sys_page_unmap(0, UTEMP)) < 0)
 		panic("sys_page_unmap: %e", r);
 }
@@ -43,7 +46,7 @@ dumbfork(void)
 	envid_t envid;
 	uint8_t *addr;
 	int r;
-	extern unsigned char end[];
+	extern unsigned char end[]; // 内核代码段最后的地址
 
 	// Allocate a new child environment.
 	// The kernel will initialize it with a copy of our register state,
@@ -63,12 +66,13 @@ dumbfork(void)
 	}
 
 	// We're the parent.
-	// Eagerly copy our entire address space into the child.
+	// *Eagerly* copy our entire address space into the child.
 	// This is NOT what you should do in your fork implementation.
 	for (addr = (uint8_t*) UTEXT; addr < end; addr += PGSIZE)
 		duppage(envid, addr);
 
 	// Also copy the stack we are currently running on.
+	// addr这个变量在本进程的栈的底端！
 	duppage(envid, ROUNDDOWN(&addr, PGSIZE));
 
 	// Start the child environment running
