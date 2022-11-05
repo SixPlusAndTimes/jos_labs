@@ -401,7 +401,7 @@ page_alloc(int alloc_flags)
 	if (alloc_flags & ALLOC_ZERO) {
 		memset(page2kva(ret), 0, PGSIZE);
 	}
-	cprintf("total pages after page_alloc = %d\n", count_free_pages());
+	// cprintf("total pages after page_alloc = %d\n", count_free_pages());
 	return ret;
 }
 

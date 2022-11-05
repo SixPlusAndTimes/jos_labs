@@ -90,7 +90,7 @@ duppage(envid_t envid, unsigned pn)
 		// 此时父子进程的va都映射到同一物理内存，且权限都是只读！无论父子进程的那个会往va里写，都会出发缺页中断
 
 	} else  {
-		// 映射为可写
+		// 映射为只读
 		r = sys_page_map(0,va,envid,va, PTE_P | PTE_U);
 		if (r < 0) {
 			return r;
@@ -98,7 +98,7 @@ duppage(envid_t envid, unsigned pn)
 	}
 	return 0;
 	// panic("duppage not implemented");
-	return 0;
+	// return 0;
 }
 
 //
