@@ -53,11 +53,16 @@ sys_getenvid(void)
 static int
 sys_env_destroy(envid_t envid)
 {
+	// 不知道为什么 lab5 合并 lab4后，两句cprintf被注释掉了，然后一个lab4的测试都通不过了
 	int r;
 	struct Env *e;
 
 	if ((r = envid2env(envid, &e, 1)) < 0)
 		return r;
+	if (e == curenv)
+		cprintf("[%08x] exiting gracefully\n", curenv->env_id);
+	else
+		cprintf("[%08x] destroying %08x\n", curenv->env_id, e->env_id);
 	env_destroy(e);
 	return 0;
 }
