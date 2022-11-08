@@ -59,8 +59,8 @@ i386_init(void)
 	// cprintf("before boot aps free pages = %d\n",count_free_pages());
 	boot_aps();
 
-	// Start fs.
-	// ENV_CREATE(fs_fs, ENV_TYPE_FS);
+	// Start fs. 到这里我才意识到，JOS是微内核架构
+	ENV_CREATE(fs_fs, ENV_TYPE_FS);
 
 #if defined(TEST)
 	// Don't touch -- used by grading script!

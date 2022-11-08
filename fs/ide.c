@@ -59,7 +59,11 @@ ide_set_disk(int d)
 	diskno = d;
 }
 
-
+/*
+secno : 从哪个secno开始读
+dst ： 读到内存的哪个位置
+nsecs ： 要读多少个sector
+*/
 int
 ide_read(uint32_t secno, void *dst, size_t nsecs)
 {
@@ -102,7 +106,7 @@ ide_write(uint32_t secno, const void *src, size_t nsecs)
 	outb(0x1F7, 0x30);	// CMD 0x30 means write sector
 
 	for (; nsecs > 0; nsecs--, src += SECTSIZE) {
-		if ((r = ide_wait_ready(1)) < 0)
+		if ((r = ide_wait_ready(1)) < 0) // 进入轮询
 			return r;
 		outsl(0x1F0, src, SECTSIZE/4);
 	}

@@ -4,6 +4,7 @@
 .data
 // Define the global symbols 'envs', 'pages', 'uvpt', and 'uvpd'
 // so that they can be used in C as if they were ordinary global arrays.
+// set envs, UENVS这一行，将使得内核与用户态的envs变量不同
 	.globl envs
 	.set envs, UENVS
 	.globl pages

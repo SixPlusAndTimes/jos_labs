@@ -211,6 +211,7 @@ mem_init(void)
 	//    - pages itself -- kernel RW, user NONE
 	// Your code goes here:
 	// 关于权限，如果没有 PTE_U,那么用户不可读，不可写
+	// “pages itself -- kernel RW, user NONE”， pages 对应两个虚拟地址，一个地址在kernelbase 之上，内核代码可读写
 	boot_map_region(kern_pgdir,UPAGES ,PTSIZE ,PADDR(pages),PTE_U );
 	//////////////////////////////////////////////////////////////////////
 	// Map the 'envs' array read-only by the user at linear address UENVS
@@ -219,6 +220,8 @@ mem_init(void)
 	//    - the new image at UENVS  -- kernel R, user R
 	//    - envs itself -- kernel RW, user NONE
 	// LAB 3: Your code here. 映射 env数组
+	// “envs itself -- kernel RW, user NONE”
+	// 怎么理解这句话？ envs变量在用户态和内核态的虚拟地址是不同的，权限也是不同的，但是映射的物理地址是相同的。
 	boot_map_region(kern_pgdir, UENVS, PTSIZE,PADDR(envs),PTE_U);
 	//////////////////////////////////////////////////////////////////////
 	// Use the physical memory that 'bootstack' refers to as the kernel

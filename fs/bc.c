@@ -29,6 +29,7 @@ va_is_dirty(void *va)
 static void
 bc_pgfault(struct UTrapframe *utf)
 {
+	// 与fork的pgfault相比，这里的处理函数需要处理 PTE_D, 而fork的pgfault需要处理PTE_COW
 	void *addr = (void *) utf->utf_fault_va;
 	uint32_t blockno = ((uint32_t)addr - DISKMAP) / BLKSIZE;
 	int r;
@@ -48,7 +49,16 @@ bc_pgfault(struct UTrapframe *utf)
 	// the disk.
 	//
 	// LAB 5: you code here:
-
+	addr = (void *) ROUNDDOWN(addr, PGSIZE);
+	// 分配一个物理页并与addr建立映射
+	if ( (r = sys_page_alloc(0, addr, PTE_P | PTE_W | PTE_U)) < 0) {
+		panic("bc.c:bc_pgfault sys_page_alloc failed\n");
+	}
+	//BLKSECTS : sectors per block
+	// 从磁盘读如 BLKSIZE大小的内容，JOS中BLKSIZE = PGSIZE
+	if ( (r = ide_read(blockno * BLKSECTS, addr, BLKSECTS)) < 0) {
+		panic("bc.c:bc_pgfault ide_read failed\n");
+	}
 	// Clear the dirty bit for the disk block page since we just read the
 	// block from disk
 	if ((r = sys_page_map(0, addr, 0, addr, uvpt[PGNUM(addr)] & PTE_SYSCALL)) < 0)
@@ -75,9 +85,21 @@ flush_block(void *addr)
 
 	if (addr < (void*)DISKMAP || addr >= (void*)(DISKMAP + DISKSIZE))
 		panic("flush_block of bad va %08x", addr);
-
+	int r;
 	// LAB 5: Your code here.
-	panic("flush_block not implemented");
+	addr = ROUNDDOWN(addr,PGSIZE);
+	// If the block is not in the block cache or is not dirty, does nothing
+	if (!va_is_mapped(addr) || ! va_is_dirty(addr)) {
+		return ;
+	}
+	// Flush the contents of the block containing VA out to disk
+	if ((r = ide_write(blockno * BLKSECTS,addr,BLKSECTS)) < 0 ) {
+		panic("bc.c:flush_block ide_write failed");
+	}
+	// clear the PTE_D bit using sys_page_map.Use the PTE_SYSCALL constant when calling sys_page_map.
+	if ((r = sys_page_map(0,addr,0,addr, uvpt[PGNUM(addr)] & PTE_SYSCALL) ) < 0 ) {
+		panic("bc.c:flush_block sys_page_map failed");
+	}
 }
 
 // Test that the block cache works, by smashing the superblock and
@@ -86,10 +108,11 @@ static void
 check_bc(void)
 {
 	struct Super backup;
+	// cprintf("debug\n");
 
 	// back up super block
 	memmove(&backup, diskaddr(1), sizeof backup);
-
+// cprintf("afeter memmove\n");
 	// smash it
 	strcpy(diskaddr(1), "OOPS!\n");
 	flush_block(diskaddr(1));
@@ -99,7 +122,7 @@ check_bc(void)
 	// clear it out
 	sys_page_unmap(0, diskaddr(1));
 	assert(!va_is_mapped(diskaddr(1)));
-
+//
 	// read it back in
 	assert(strcmp(diskaddr(1), "OOPS!\n") == 0);
 
@@ -112,7 +135,7 @@ check_bc(void)
 
 	// back up super block
 	memmove(&backup, diskaddr(1), sizeof backup);
-
+//
 	// smash it
 	strcpy(diskaddr(1), "OOPS!\n");
 
@@ -143,6 +166,7 @@ bc_init(void)
 {
 	struct Super super;
 	set_pgfault_handler(bc_pgfault);
+	// cprintf("before check bc\n");
 	check_bc();
 
 	// cache the super block by reading it once

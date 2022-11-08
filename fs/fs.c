@@ -60,10 +60,18 @@ alloc_block(void)
 	// The bitmap consists of one or more blocks.  A single bitmap block
 	// contains the in-use bits for BLKBITSIZE blocks.  There are
 	// super->s_nblocks blocks in the disk altogether.
-
+	// 存放bitmap的block最多有 3G / 4kb = 24个
 	// LAB 5: Your code here.
-	panic("alloc_block not implemented");
-	return -E_NO_DISK;
+	uint32_t block_no = 2;
+	// 找到一个空闲块
+	for (;block_no < super->s_nblocks && !block_is_free(block_no); block_no++) {}
+	
+	if (block_no >= super->s_nblocks) return -E_NO_DISK;
+
+	bitmap[block_no/32] ^= 1<<(block_no%32); // 异或运算清空标志位
+	// immediately flush the changed bitmap block
+	flush_block(&bitmap[block_no/32]);
+	return block_no;
 }
 
 // Validate the file system bitmap.
@@ -103,6 +111,7 @@ fs_init(void)
 		ide_set_disk(1);
 	else
 		ide_set_disk(0);
+	// cprintf("before bc init\n");
 	bc_init();
 
 	// Set "super" to point to the super block.
