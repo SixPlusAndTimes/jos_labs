@@ -54,6 +54,7 @@ free_block(uint32_t blockno)
 // -E_NO_DISK if we are out of blocks.
 //
 // Hint: use free_block as an example for manipulating the bitmap.
+// 返回值： 全局blockno
 int
 alloc_block(void)
 {
@@ -65,7 +66,7 @@ alloc_block(void)
 	uint32_t block_no = 2;
 	// 找到一个空闲块
 	for (;block_no < super->s_nblocks && !block_is_free(block_no); block_no++) {}
-	
+	// 判断是否已经没有空闲区域了
 	if (block_no >= super->s_nblocks) return -E_NO_DISK;
 
 	bitmap[block_no/32] ^= 1<<(block_no%32); // 异或运算清空标志位
@@ -140,11 +141,44 @@ fs_init(void)
 //
 // Analogy: This is like pgdir_walk for files.
 // Hint: Don't forget to clear any block you allocate.
+/*
+输入参数：
+	f
+	fileno : 在struct file中的第fileno个block
+	alloc
+输出参数：
+	ppdiskno ： 指向数组元素中的虚拟地址，这个数组要么是f_direct，要么是f_indirect指向的那个数组。
+*/
 static int
 file_block_walk(struct File *f, uint32_t filebno, uint32_t **ppdiskbno, bool alloc)
 {
-       // LAB 5: Your code here.
-       panic("file_block_walk not implemented");
+    // LAB 5: Your code here.
+	if(filebno >= NDIRECT + NINDIRECT) return -E_INVAL;
+	
+	// 如果要索引直接块的地址，那么非常简单
+	if (filebno < NDIRECT) {
+		*ppdiskbno = &(f->f_direct[filebno]);
+		return 0;
+	}
+	// 下面处理索引间接块的情况
+	int r;
+	// if the function needed to allocate an indirect block
+	if(f->f_indirect == 0){
+		if(alloc==0) {
+			//  but alloc was 0, return -E_NOT_FOUND
+			return -E_NOT_FOUND;
+		}
+		if((r=alloc_block())<0)
+			return -E_NO_DISK;
+		f->f_indirect=r;
+		cprintf("debug\n");
+		memset(diskaddr(r), 0, BLKSIZE); 
+		flush_block(diskaddr(r)); //每次对磁盘映射区域的块修改后都应该刷新回磁盘
+		cprintf("debug\n");
+	}
+	*ppdiskbno=(uint32_t *)diskaddr(f->f_indirect)+filebno-NDIRECT;
+	return 0;
+
 }
 
 // Set *blk to the address in memory where the filebno'th
@@ -155,11 +189,31 @@ file_block_walk(struct File *f, uint32_t filebno, uint32_t **ppdiskbno, bool all
 //	-E_INVAL if filebno is out of range.
 //
 // Hint: Use file_block_walk and alloc_block.
+// blk是输出参数，被设置为对应block在内存中的虚拟地址
+// 不要去想用page_alloc来配置物理页，只管使用虚拟地址即可，因为bc.c中的pgfault自动为我们处理物理页
 int
 file_get_block(struct File *f, uint32_t filebno, char **blk)
-{
-       // LAB 5: Your code here.
-       panic("file_get_block not implemented");
+{	
+	// LAB 5: Your code here.
+	uint32_t *ppdiskbno = 0;
+	int r;
+	if ((r = file_block_walk(f,filebno,&ppdiskbno,1)) < 0) {
+		return r;
+	}
+	// 此时ppdiskbno地址中存储一个block的实际虚拟地址
+	if(*ppdiskbno == 0) {
+		// 还没有被分配block，立马分配一个
+		if ((*ppdiskbno = alloc_block()) < 0){
+			return -E_NO_DISK;
+		}
+		memset(diskaddr(*ppdiskbno), 0, BLKSIZE);
+		flush_block(diskaddr(*ppdiskbno)); 
+	}
+	
+	*blk=diskaddr(*ppdiskbno); // blk存储block在内存中的虚拟地址
+	cprintf("enter file_get_block\n");
+	return 0;
+
 }
 
 // Try to find a file named "name" in dir.  If so, set *file to it.
@@ -441,16 +495,17 @@ file_flush(struct File *f)
 {
 	int i;
 	uint32_t *pdiskbno;
-
+	// 先flush file中包含的block
 	for (i = 0; i < (f->f_size + BLKSIZE - 1) / BLKSIZE; i++) {
 		if (file_block_walk(f, i, &pdiskbno, 0) < 0 ||
 		    pdiskbno == NULL || *pdiskbno == 0)
 			continue;
 		flush_block(diskaddr(*pdiskbno));
 	}
+	// 然后flush file这个block本身
 	flush_block(f);
 	if (f->f_indirect)
-		flush_block(diskaddr(f->f_indirect));
+		flush_block(diskaddr(f->f_indirect));// 然后flush file的间接块
 }
 
 
