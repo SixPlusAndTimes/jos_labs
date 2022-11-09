@@ -55,7 +55,7 @@ fd_alloc(struct Fd **fd_store)
 
 	for (i = 0; i < MAXFD; i++) {
 		fd = INDEX2FD(i);
-		if ((uvpd[PDX(fd)] & PTE_P) == 0 || (uvpt[PGNUM(fd)] & PTE_P) == 0) {
+		if ((uvpd[PDX(fd)] & PTE_P) == 0 || (uvpt[PGNUM(fd)] & PTE_P) == 0) {// 找到一个还没有建立映射的虚拟地址
 			*fd_store = fd;
 			return 0;
 		}

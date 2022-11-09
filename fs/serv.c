@@ -53,10 +53,10 @@ void
 serve_init(void)
 {
 	int i;
-	uintptr_t va = FILEVA;
+	uintptr_t va = FILEVA;// FILEVA = 0xD0000000
 	for (i = 0; i < MAXOPEN; i++) {
 		opentab[i].o_fileid = i;
-		opentab[i].o_fd = (struct Fd*) va;
+		opentab[i].o_fd = (struct Fd*) va; // struct FD 数组仅挨在opentab上方
 		va += PGSIZE;
 	}
 }
@@ -71,6 +71,8 @@ openfile_alloc(struct OpenFile **o)
 	for (i = 0; i < MAXOPEN; i++) {
 		switch (pageref(opentab[i].o_fd)) {
 		case 0:
+			// 这里才时即意义上的分配一个 struct fd的物理空间
+			// 这里不能用缺页处理函数进行懒分配，因为本进程只对 0x10000000 ～ 0xD0000000范围内的虚拟地址执行缺页处理
 			if ((r = sys_page_alloc(0, opentab[i].o_fd, PTE_P|PTE_U|PTE_W)) < 0)
 				return r;
 			/* fall through */
@@ -171,8 +173,8 @@ try_open:
 
 	// Share the FD page with the caller by setting *pg_store,
 	// store its permission in *perm_store
-	*pg_store = o->o_fd;
-	*perm_store = PTE_P|PTE_U|PTE_W|PTE_SHARE;
+	*pg_store = o->o_fd; // pg_store是serve端返回给发送端的虚拟页面地址，IPC机制会自动为发送端建立物理映射，来共享本进程的struct FD
+	*perm_store = PTE_P|PTE_U|PTE_W|PTE_SHARE; // 注意这里的PTE_SHARE标记，表示如果进程要fork或者spawn，需要和它的父进程共享
 
 	return 0;
 }

@@ -26,7 +26,8 @@ struct Dev {
 struct FdFile {
 	int id;
 };
-
+// Fd 的虚拟地址在 fs进程和对应的用户进程不同，但是两个虚拟地址所映射的物理页完全相同
+// 这样才可能在其他进程中看到 在fs进程中的Fd->FdFile.id, 而这个值唯一对应了struct file 结构
 struct Fd {
 	int fd_dev_id;
 	off_t fd_offset;

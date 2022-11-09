@@ -73,32 +73,40 @@ static int
 duppage(envid_t envid, unsigned pn)
 {
 	int r;
-
 	// LAB 4: Your code here.
 	void * va = (void *)(pn * PGSIZE);
-	if ( (uvpt[pn] & PTE_W) || (uvpt[pn] & PTE_COW)) {
-		// map the page copy-on-write into the address space of the child
-		r = sys_page_map(0, va, envid, va, PTE_COW | PTE_P | PTE_U);
-		if (r < 0)  {
-			return r;
-		}
-		// remap the page copy-on-write in its own address space. 
-		r = sys_page_map(0,va, 0,va, PTE_U | PTE_COW | PTE_P);
-		if (r < 0) {
-			return r;
-		}
-		// 此时父子进程的va都映射到同一物理内存，且权限都是只读！无论父子进程的那个会往va里写，都会出发缺页中断
+	if (uvpt[pn] & PTE_SHARE) {
+		// lab5 : 如果这个页是share的，那么不要使用COW机制，而是直接创建映射到相同的物理页面，且可读写
+		if ((r = sys_page_map(0, va, envid, va,  PTE_SYSCALL)) < 0) {
+				panic("fork.c : duppage() : sys_page_map failed %e", r);
+				return r;
+			}
+	}else {
+		if ( (uvpt[pn] & PTE_W) || (uvpt[pn] & PTE_COW)) {
+			// map the page copy-on-write into the address space of the child
+			// cow机制要求只读地映射页面，这样如果发生写操作也会触发pagefault
+			r = sys_page_map(0, va, envid, va, PTE_COW | PTE_P | PTE_U);
+			if (r < 0)  {
+				return r;
+			}
+			// remap the page copy-on-write in its own address space. 
+			r = sys_page_map(0,va, 0,va, PTE_U | PTE_COW | PTE_P);
+			if (r < 0) {
+				return r;
+			}
+			// 此时父子进程的va都映射到同一物理内存，且权限都是只读！无论父子进程的那个会往va里写，都会出发缺页中断
 
-	} else  {
-		// 映射为只读
-		r = sys_page_map(0,va,envid,va, PTE_P | PTE_U);
-		if (r < 0) {
-			return r;
+		} else  {
+			// 映射为只读
+			r = sys_page_map(0,va,envid,va, PTE_P | PTE_U);
+			if (r < 0) {
+				return r;
+			}
 		}
 	}
-	return 0;
+
 	// panic("duppage not implemented");
-	// return 0;
+	return 0;
 }
 
 //

@@ -79,7 +79,7 @@ open(const char *path, int mode)
 
 	strcpy(fsipcbuf.open.req_path, path);
 	fsipcbuf.open.req_omode = mode;
-
+	// fd的值现在等于0xD0000000以上的一个还没有建立映射的页面首地址
 	if ((r = fsipc(FSREQ_OPEN, fd)) < 0) {
 		fd_close(fd, 0);
 		return r;
