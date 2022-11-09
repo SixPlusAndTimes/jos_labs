@@ -56,6 +56,7 @@ ipc_send(envid_t to_env, uint32_t val, void *pg, int perm)
         void *dstpg;
 
         dstpg = pg != NULL ? pg : (void *)UTOP;
+        // 等待对端接受
         while((r = sys_ipc_try_send(to_env, val, dstpg, perm)) < 0) {
                 if (r != -E_IPC_NOT_RECV)
                         panic("ipc_send: send message error %e", r);

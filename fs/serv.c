@@ -6,6 +6,7 @@
 #include <inc/x86.h>
 #include <inc/string.h>
 
+
 #include "fs.h"
 
 
@@ -30,7 +31,7 @@
 //    file IDs to struct OpenFile.
 
 struct OpenFile {
-	uint32_t o_fileid;	// file id
+	uint32_t o_fileid;	// file id， The client uses file IDs to communicate with the server
 	struct File *o_file;	// mapped descriptor for open file
 	int o_mode;		// open mode
 	struct Fd *o_fd;	// Fd page
@@ -212,9 +213,23 @@ serve_read(envid_t envid, union Fsipc *ipc)
 
 	if (debug)
 		cprintf("serve_read %08x %08x %08x\n", envid, req->req_fileid, req->req_n);
-
+	int file_id = req->req_fileid; // 要读取的文件id
+	size_t req_size = req->req_n; //  要读取的字节数
+	struct OpenFile*  open_file;
+	int r;
 	// Lab 5: Your code here:
-	return 0;
+	// 一定是在已经打开的文件中找，不要直接调用fs.c中的函数。应使用server.c中的openfile_xx函数
+	// 先找到openfile struct 
+	if ((r = openfile_lookup( envid, file_id, &open_file)) < 0) {
+		return r;
+	}
+	// 然后在使用fs.c中函数做读取操作
+	if ((r = file_read(open_file->o_file, ret->ret_buf, req_size, open_file->o_fd->fd_offset)) < 0) {
+		return r;
+	}
+	// update the seek position, offset是一个暂态量，所以它不在File而在FD中，所以更新offset的操作放在这里而不是fs.c中
+	open_file->o_fd->fd_offset += r; 
+	return r;
 }
 
 
@@ -229,7 +244,14 @@ serve_write(envid_t envid, struct Fsreq_write *req)
 		cprintf("serve_write %08x %08x %08x\n", envid, req->req_fileid, req->req_n);
 
 	// LAB 5: Your code here.
-	panic("serve_write not implemented");
+	int r;
+	struct OpenFile *open_file; 
+	if ((r = openfile_lookup(envid, req->req_fileid, &open_file)) < 0)
+			return r;
+	if((r = file_write(open_file->o_file, req->req_buf, req->req_n, open_file->o_fd->fd_offset))<0)
+			return r;
+	open_file->o_fd->fd_offset += r;
+	return r;
 }
 
 // Stat ipc->stat.req_fileid.  Return the file's struct Stat to the

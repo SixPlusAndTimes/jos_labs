@@ -106,7 +106,7 @@ spawn(const char *prog, const char **argv)
 	// Set up trap frame, including initial stack.
 	child_tf = envs[ENVX(child)].env_tf;
 	child_tf.tf_eip = elf->e_entry;
-
+	// 设置用户环境的main函数的参数
 	if ((r = init_stack(child, argv, &child_tf.tf_esp)) < 0)
 		return r;
 

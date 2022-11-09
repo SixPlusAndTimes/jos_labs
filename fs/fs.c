@@ -211,7 +211,7 @@ file_get_block(struct File *f, uint32_t filebno, char **blk)
 	}
 	
 	*blk=diskaddr(*ppdiskbno); // blk存储block在内存中的虚拟地址
-	cprintf("enter file_get_block\n");
+	// cprintf("enter file_get_block\n");
 	return 0;
 
 }
