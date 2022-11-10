@@ -64,6 +64,7 @@ umain(int argc, char **argv)
 			cprintf("init: spawn sh: %e\n", r);
 			continue;
 		}
+		// wait 的实现和宏内核的实现很不一样
 		wait(r);
 	}
 }

@@ -170,6 +170,7 @@ close_all(void)
 // file and the file offset of the other.
 // Closes any previously open file descriptor at 'newfdnum'.
 // This is implemented using virtual memory tricks (of course!).
+// 更像是 linux 中dup2的api
 int
 dup(int oldfdnum, int newfdnum)
 {

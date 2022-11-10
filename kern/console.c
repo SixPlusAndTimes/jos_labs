@@ -397,7 +397,8 @@ kbd_init(void)
 // Here we manage the console input buffer,
 // where we stash characters received from the keyboard or serial port
 // whenever the corresponding interrupt occurs.
-
+// 把从中断程序中拿到的字符存在 consbuf中
+// 等shell调用cons_get才从真正地从consbuf中取字符
 #define CONSBUFSIZE 512
 
 static struct {
@@ -435,7 +436,7 @@ cons_getc(void)
 	kbd_intr();
 
 	// grab the next character from the input buffer.
-	if (cons.rpos != cons.wpos) {
+	if (cons.rpos != cons.wpos) { // 当cons中read指针不等于write指针时，才表示cons_buf中还没有处理字符
 		c = cons.buf[cons.rpos++];
 		if (cons.rpos == CONSBUFSIZE)
 			cons.rpos = 0;
@@ -450,7 +451,7 @@ cons_getc(void)
 static void
 cons_putc(int c)
 {
-	serial_putc(c); // 串口打印
+	serial_putc(c); // 串口打印, 如果把这个注释那么，宿主机的teminal看不到JOS的输出
 	lpt_putc(c);    // 并口打印
 	cga_putc(c); // 在屏幕上打印
 }

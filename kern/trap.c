@@ -96,7 +96,8 @@ trap_init(void)
 	SETGATE(idt[T_SIMDERR], 0, GD_KT, simderr_handler, 0);
 	SETGATE(idt[T_SYSCALL], 0, GD_KT, syscall_handler, 3);
 
-	//外部设备中断在内核中总是禁用的(和xv6一样，在用户空间中启用)
+	// 外部设备中断在内核中总是禁用的(和xv6一样，在用户空间中启用)
+	// 常用的有 IDE、KBD、TIMER，分别表示来自磁盘、键盘、时钟的中断
 	SETGATE(idt[IRQ_OFFSET+IRQ_ERROR], 0, GD_KT, irq_error_handler, 3);
 	SETGATE(idt[IRQ_OFFSET+IRQ_IDE], 0, GD_KT, irq_ide_handler, 3);
 	SETGATE(idt[IRQ_OFFSET+IRQ_KBD], 0, GD_KT, irq_kbd_handler, 3);
@@ -236,6 +237,14 @@ trap_dispatch(struct Trapframe *tf)
 		case IRQ_OFFSET+IRQ_TIMER:
 			lapic_eoi();
 			sched_yield();
+			break;
+		case IRQ_OFFSET + IRQ_KBD:
+			kbd_intr();
+			lapic_eoi();
+			break;
+		case IRQ_OFFSET + IRQ_SERIAL:
+			serial_intr();
+			lapic_eoi();
 			break;
 		default:
 			// Unexpected trap: The user process or the kernel has a bug.

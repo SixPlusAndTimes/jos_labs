@@ -55,7 +55,14 @@ again:
 			// then close the original 'fd'.
 
 			// LAB 5: Your code here.
-			panic("< redirection not implemented");
+			if (fd = open(t, O_RDONLY), fd < 0) {
+                cprintf("open %s for read: %e", t, fd);
+                exit();
+            }
+            if (fd != 0) {
+                dup(fd, 0); // 关闭标准输入，将0这个文件描述副共享fd的底层结构
+                close(fd);
+            }
 			break;
 
 		case '>':	// Output redirection
@@ -68,8 +75,8 @@ again:
 				cprintf("open %s for write: %e", t, fd);
 				exit();
 			}
-			if (fd != 1) {
-				dup(fd, 1);
+			if (fd != 1) { // 判断之前的open是否是就是打开了1号fd，如果是那就不需要进行额外的操作了
+				dup(fd, 1); // 关闭了标准输出的文件描述符，使其与fd共享底层结构，这样如果往标准输出输出内容，则会往fd对应的文件发送
 				close(fd);
 			}
 			break;
@@ -313,9 +320,10 @@ umain(int argc, char **argv)
 		if (debug)
 			cprintf("FORK: %d\n", r);
 		if (r == 0) {
+			// 子进程取执行命令
 			runcmd(buf);
 			exit();
-		} else
+		} else // 父进程等待子进程退出，开始下一个循环
 			wait(r);
 	}
 }
