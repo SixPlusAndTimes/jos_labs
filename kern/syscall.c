@@ -380,10 +380,12 @@ sys_page_unmap(envid_t envid, void *va)
 //		current environment's address space.
 //	-E_NO_MEM if there's not enough memory to map srcva in envid's
 //		address space.
+// envid: 给envid进程发送消息
+// value: 传输的32位整数
+// srcva： 如果srcva不等于0，表示发送端通过页面传输消息
 static int
 sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
 {
-	// LAB 4: Your code here.
 	int r;
 	pte_t *pte;
 	struct PageInfo *pp;
@@ -391,9 +393,11 @@ sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
 
 	if ((r = envid2env(envid, &env, 0)) < 0)
 			return -E_BAD_ENV;
-	if (env->env_ipc_recving != true || env->env_ipc_from != 0)
+	if (env->env_ipc_recving != true || env->env_ipc_from != 0) 
+			// 接收端已经在接受别的进程的消息了，告知用户进程。
 			return -E_IPC_NOT_RECV;
-	if (srcva < (void *)UTOP && PGOFF(srcva))
+	if (srcva < (void *)UTOP && PGOFF(srcva)) 
+			// srcva没有页对齐，错误
 			return -E_INVAL;
 	if (srcva < (void *)UTOP) {
 			if ((perm & PTE_P) == 0 || (perm & PTE_U) == 0)
@@ -401,14 +405,18 @@ sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
 			if ((perm & ~(PTE_P | PTE_U | PTE_W | PTE_AVAIL)) != 0)
 					return -E_INVAL;
 	}
-	// 找到本进程srcva对应的物理页面
+	// 尝试到发送端进程的srcva对应的物理页面
 	if (srcva < (void *)UTOP && (pp = page_lookup(curenv->env_pgdir, srcva, &pte)) == NULL)
+			// 没找到，错误
 			return -E_INVAL;
+	// 找到了srcva的物理页
 	if (srcva < (void *)UTOP && (perm & PTE_W) != 0 && (*pte & PTE_W) == 0)
+			// 但是perm权限与被发送物理页的pte的权限不一致，即perm可写，但是被发送物理页对应的pte不可写，错误
 			return -E_INVAL;
 	if (srcva < (void *)UTOP && env->env_ipc_dstva != 0) {
-		// 将这个物理页面插入到对端进程指定的虚拟地址处
+		// 将这个物理页面插入到接收端进程指定的虚拟地址处
 			if ((r = page_insert(env->env_pgdir, pp, env->env_ipc_dstva, perm)) < 0)
+				// 但是物理空间不足，错误
 					return -E_NO_MEM;
 			env->env_ipc_perm = perm;
 	}
@@ -416,7 +424,7 @@ sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
 	env->env_ipc_from = curenv->env_id;
 	env->env_ipc_recving = false;
 	env->env_ipc_value = value;
-	env->env_status = ENV_RUNNABLE;
+	env->env_status = ENV_RUNNABLE; // 唤醒接收端！
 	env->env_tf.tf_regs.reg_eax = 0;
 	return 0;
 	// panic("sys_ipc_try_send not implemented");
@@ -436,14 +444,15 @@ sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
 static int
 sys_ipc_recv(void *dstva)
 {
-	// LAB 4: Your code here.
-	// if dstva < UTOP but dstva is not page-aligned.
+	// 如果小于UTOP，那么表示两个进程通过映射同一个页进行通信
+	// 此时dstva必须页对齐
 	if (dstva < (void *)UTOP && PGOFF(dstva))
 			return -E_INVAL;
-	curenv->env_ipc_recving = true;
-	curenv->env_ipc_dstva = dstva;
+	curenv->env_ipc_recving = true; // env_ipc_recving标识接收进程是否在等待接收消息，此时置为true，表示接收端在等待
+	curenv->env_ipc_dstva = dstva;  // 表示本接收端如果要通过页通信，则通过dstva这个虚拟地址行通信
+	curenv->env_ipc_from = 0;       // env_ipc_from这个标识表示本接收端对应的发送端进程号，但是现在将它初始化位0，表示还没有对应的发送端
+	// 将本进程阻塞
 	curenv->env_status = ENV_NOT_RUNNABLE;
-	curenv->env_ipc_from = 0;
 	sched_yield();
 	return 0;
 }

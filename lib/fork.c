@@ -21,8 +21,7 @@ pgfault(struct UTrapframe *utf)
 	// Check that the faulting access was (1) a write, and (2) to a
 	// copy-on-write page.  If not, panic.
 	// Hint:
-	//   Use the read-only page table mappings at uvpt
-	//   (see <inc/memlayout.h>).
+
 
 	// LAB 4: Your code here.
 	// 判断错误是否由writedeny产生，并且对应的PTE是PTE_COW

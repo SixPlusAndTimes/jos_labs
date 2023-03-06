@@ -398,7 +398,9 @@ load_icode(struct Env *e, uint8_t *binary)
 
 	e->env_tf.tf_eip = elf->e_entry; // 设置新环境的初始运行地址
 	// cprintf("env_tf.tf_eip = %x\n",elf->e_entry);
-	lcr3(PADDR(e->env_pgdir)); // 这一行只要在for之前，是不是加在哪里都可以？ 从partA的测试结果来看，是的。 这方便了 memmove、memset的操作
+	lcr3(PADDR(e->env_pgdir)); 
+	// 上一行只要在for之前，是不是加在哪里都可以？ 从partA的测试结果来看，是的。 因为这一行上面用到的env 、 elf指针内核都已建立映射，不管用户空间的事
+	// 切换也目录方便了 memmove、memset的操作
 	
 	for (; ph < eph; ph++) {
 		if (ph->p_type == ELF_PROG_LOAD) {
@@ -581,12 +583,12 @@ env_run(struct Env *e)
 	if (curenv && curenv->env_status == ENV_RUNNING) {
 		curenv->env_status = ENV_RUNNABLE;
 	}
-	curenv = e;
+	curenv = e; // 记录本CPU即将运行的进程
 	curenv->env_status = ENV_RUNNING;
 	curenv->env_runs++;
-	lcr3(PADDR(curenv->env_pgdir));
+	lcr3(PADDR(curenv->env_pgdir)); // 切换页目录
 	// unlock_kernel();
-	env_pop_tf(&(curenv->env_tf)); // 不会返回
+	env_pop_tf(&(curenv->env_tf)); // 中断返回至用户态
 	panic("env_run not yet implemented");
 }
 

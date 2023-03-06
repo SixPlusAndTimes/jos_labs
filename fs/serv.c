@@ -56,7 +56,7 @@ serve_init(void)
 	uintptr_t va = FILEVA;// FILEVA = 0xD0000000
 	for (i = 0; i < MAXOPEN; i++) {
 		opentab[i].o_fileid = i;
-		opentab[i].o_fd = (struct Fd*) va; // struct FD 数组仅挨在opentab上方
+		opentab[i].o_fd = (struct Fd*) va; // struct FD 数组紧挨在opentab上方
 		va += PGSIZE;
 	}
 }
@@ -70,17 +70,18 @@ openfile_alloc(struct OpenFile **o)
 	// Find an available open-file table entry
 	for (i = 0; i < MAXOPEN; i++) {
 		switch (pageref(opentab[i].o_fd)) {
-		case 0:
+		case 0:// 这个Struct Fd 还没建立物理映射
 			// 这里才时即意义上的分配一个 struct fd的物理空间
 			// 这里不能用缺页处理函数进行懒分配，因为本进程只对 0x10000000 ～ 0xD0000000范围内的虚拟地址执行缺页处理
 			if ((r = sys_page_alloc(0, opentab[i].o_fd, PTE_P|PTE_U|PTE_W)) < 0)
 				return r;
-			/* fall through */
-		case 1:
+			// 注意这里没有break！
+		case 1: // 如果物理页的ppref等于1，表示只有文件服务进程在使用这个物理页，这也是能够分配出去的。
 			opentab[i].o_fileid += MAXOPEN;
 			*o = &opentab[i];
-			memset(opentab[i].o_fd, 0, PGSIZE);
+			memset(opentab[i].o_fd, 0, PGSIZE); // 清空这个struct fd
 			return (*o)->o_fileid;
+		// 如果ppref > 1,表示有一个普通进程在使用这个fd
 		}
 	}
 	return -E_MAX_OPEN;
@@ -159,7 +160,7 @@ try_open:
 		return r;
 	}
 
-	// Save the file pointer
+	// 将file指针保存到opentab的元素中
 	o->o_file = f;
 
 	// Fill out the Fd structure

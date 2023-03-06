@@ -24,8 +24,8 @@ fsipc(unsigned type, void *dstva)
 	if (debug)
 		cprintf("[%08x] fsipc %d %08x\n", thisenv->env_id, type, *(uint32_t *)&fsipcbuf);
 	// 共享页为&fsipcbuf开始的页面
-	ipc_send(fsenv, type, &fsipcbuf, PTE_P | PTE_W | PTE_U);
-	return ipc_recv(NULL, dstva, NULL);
+	ipc_send(fsenv, type, &fsipcbuf, PTE_P | PTE_W | PTE_U); // 发送ipc消息给文件服务进程，请求它打开文件
+	return ipc_recv(NULL, dstva, NULL); // 调用ipc_recv等待文件服务进程将它对应的物理页共享给本进程
 }
 
 static int devfile_flush(struct Fd *fd);
@@ -74,18 +74,18 @@ open(const char *path, int mode)
 	if (strlen(path) >= MAXPATHLEN)
 		return -E_BAD_PATH;
 
-	if ((r = fd_alloc(&fd)) < 0)
+	if ((r = fd_alloc(&fd)) < 0) // 在0xD0000000开始的虚拟地址之上找到一个还没有被映射的虚拟地址作为Struct Fd
 		return r;
 
-	strcpy(fsipcbuf.open.req_path, path);
-	fsipcbuf.open.req_omode = mode;
+	strcpy(fsipcbuf.open.req_path, path); // 将需要打开的文件名复制到fsipcbuf中
+	fsipcbuf.open.req_omode = mode; // 设置文件打开模式
 	// fd的值现在等于0xD0000000以上的一个还没有建立映射的页面首地址
-	if ((r = fsipc(FSREQ_OPEN, fd)) < 0) {
+	if ((r = fsipc(FSREQ_OPEN, fd)) < 0) { // 调用fsipc使用IPC机制请求文件服务进程为我们打开文件
 		fd_close(fd, 0);
 		return r;
 	}
 
-	return fd2num(fd);
+	return fd2num(fd); // 返回文件描述符
 }
 
 // Flush the file descriptor.  After this the fileid is invalid.

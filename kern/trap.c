@@ -393,7 +393,7 @@ page_fault_handler(struct Trapframe *tf)
 
 		// 设置异常栈
 		utf->utf_fault_va = fault_va;
-		utf->utf_err = tf->tf_trapno; 
+		utf->utf_err = tf->tf_err; 
 		utf->utf_regs = tf->tf_regs;
 		utf->utf_eflags = tf->tf_eflags;
 		utf->utf_eip = tf->tf_eip;

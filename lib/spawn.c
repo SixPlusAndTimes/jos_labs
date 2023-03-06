@@ -129,7 +129,7 @@ spawn(const char *prog, const char **argv)
 	if ((r = copy_shared_pages(child)) < 0)
 		panic("copy_shared_pages: %e", r);
 
-	child_tf.tf_eflags |= FL_IOPL_3;   // devious: see user/faultio.c
+	// child_tf.tf_eflags |= FL_IOPL_3;   // devious: see user/faultio.c
 	if ((r = sys_env_set_trapframe(child, &child_tf)) < 0)
 		panic("sys_env_set_trapframe: %e", r);
 
@@ -163,7 +163,7 @@ spawnl(const char *prog, const char *arg0, ...)
 
 	// Now that we have the size of the args, do a second pass
 	// and store the values in a VLA, which has the format of argv
-	const char *argv[argc+2];
+	const char *argv[argc+2]; // 头尾各多出一个位值，头部那个是一共有多少个参数，尾部那个表示字符串结尾
 	argv[0] = arg0;
 	argv[argc+1] = NULL;
 
@@ -278,11 +278,11 @@ map_segment(envid_t child, uintptr_t va, size_t memsz,
 
 	for (i = 0; i < memsz; i += PGSIZE) {
 		if (i >= filesz) {
-			// allocate a blank page
+			// allocate a blank page， bss段，会将分配到的物理页面清零
 			if ((r = sys_page_alloc(child, (void*) (va + i), perm)) < 0)
 				return r;
 		} else {
-			// from file
+			// from file， data和text段
 			if ((r = sys_page_alloc(0, UTEMP, PTE_P|PTE_U|PTE_W)) < 0)
 				return r;
 			if ((r = seek(fd, fileoffset + i)) < 0)
