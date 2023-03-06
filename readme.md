@@ -1,3 +1,5 @@
+## 更多内容
+[我的博客](https://www.cnblogs.com/HeyLUMouMou/tag/mit6.828/)整理了JOS的部分实现原理，以及它与xv6和linux的某些对比
 ## 启动JOS
 ### 使用qemu启动
 ~~~
@@ -28,5 +30,3 @@ git checkout 分支名
 git push 自己的仓库
 ~~~
 
-## 更多内容
-[我的博客](https://www.cnblogs.com/HeyLUMouMou/tag/mit6.828/)整理了JOS的部分实现原理，以及它与xv6和linux的某些对比
