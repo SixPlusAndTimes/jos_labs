@@ -234,7 +234,7 @@ trap_dispatch(struct Trapframe *tf)
 		// Handle clock interrupts. Don't forget to acknowledge the
 		// interrupt using lapic_eoi() before calling the scheduler!
 		// LAB 4: Your code here.
-		case IRQ_OFFSET+IRQ_TIMER:
+		case IRQ_OFFSET+IRQ_TIMER: // 收到时钟中断就调度
 			lapic_eoi();
 			sched_yield();
 			break;
@@ -302,7 +302,7 @@ trap(struct Trapframe *tf)
 			curenv = NULL;
 			sched_yield();
 		}
-
+		// 将trapframe拷贝到cpu结构体的trapframe字段中
 		// Copy trap frame (which is currently on the stack)
 		// into 'curenv->env_tf', so that running the environment
 		// will restart at the trap point.

@@ -60,6 +60,7 @@ __spin_initlock(struct spinlock *lk, char *name)
 void
 spin_lock(struct spinlock *lk)
 {
+	// 不同于xv6，JOS没有在自旋锁中加入关中断的逻辑。可能也和中断们陷进门的区别有关？
 #ifdef DEBUG_SPINLOCK
 	if (holding(lk))
 		panic("CPU %d cannot acquire %s: already holding", cpunum(), lk->name);
