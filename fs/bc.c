@@ -1,6 +1,33 @@
 
 #include "fs.h"
 
+#define BLOCK_CACHE_CAP 30
+struct blockcache{
+	struct blockcache* prev;
+	struct blockcache* next;
+	void* vaddr;
+};
+struct blockcache blockcaches[BLOCK_CACHE_CAP];
+struct blockcache cache_head;
+static int cache_size;
+static void init_blockcaches(){
+	// 初始化 buffercache 链表
+	cache_head.next = &cache_head;
+	cache_head.prev = &cache_head;
+	cache_head.vaddr = 0 ; 
+	cache_size = 0;
+
+	struct blockcache* bc;
+	for (bc = blockcaches; bc < blockcaches + BLOCK_CACHE_CAP; bc++) {
+		bc->next = cache_head.next;
+		bc->prev = &cache_head;
+		bc->vaddr = 0;
+		cache_head.next->prev = bc;
+		cache_head.next = bc;
+	}
+
+	// cprintf("debuglog : init_blockcaches done\n");
+} 
 // Return the virtual address of this disk block.
 void*
 diskaddr(uint32_t blockno)
@@ -24,11 +51,26 @@ va_is_dirty(void *va)
 	return (uvpt[PGNUM(va)] & PTE_D) != 0;
 }
 
+void remove_cachelist(struct blockcache* bc) {
+	bc->prev->next = bc->next;
+	bc->next->prev = bc->prev;
+}
+
+void add_head_cachelist(struct blockcache* bc) {
+	struct blockcache* temp = cache_head.next;
+
+	cache_head.next = bc;
+	bc->prev = &cache_head;
+
+	bc->next = temp;
+	temp->prev = bc;
+}
 // Fault any disk block that is read in to memory by
 // loading it from disk.
 static void
 bc_pgfault(struct UTrapframe *utf)
 {
+	cprintf("bc_pgfault:---------------  \n");
 	// 与fork的pgfault相比，这里的处理函数需要处理 PTE_D, 而fork的pgfault需要处理PTE_COW
 	void *addr = (void *) utf->utf_fault_va;
 	uint32_t blockno = ((uint32_t)addr - DISKMAP) / BLKSIZE;
@@ -69,6 +111,39 @@ bc_pgfault(struct UTrapframe *utf)
 	// in?)
 	if (bitmap && block_is_free(blockno))
 		panic("reading free block %08x\n", blockno);
+
+	/* 以下代码是cache block的LRU剔除策略*/
+	// cprintf("debug log : cache_size = %d", cache_size);
+	
+	if (++cache_size == BLOCK_CACHE_CAP + 1) {
+		// cache容量满，剔除最后一个cache
+		void* evict_addr = cache_head.prev->vaddr;
+		if (uvpt[PGNUM(evict_addr)] & PTE_D) { // 如果此块已脏，flush到磁盘
+			flush_block(evict_addr);
+		}
+		if ((sys_page_unmap(thisenv->env_id, evict_addr)) < 0) { // 解除映射
+			panic("bc.c bc_pgfault, sys_page_unmap failed\n ");
+		}
+		cache_size--;
+		// 记录新的地址
+		cache_head.prev->vaddr = addr;
+
+		struct blockcache* new_cache = cache_head.prev;
+		// 把这个cacheblock移动到链表头部
+		remove_cachelist(new_cache);
+		add_head_cachelist(new_cache);
+
+	}else {
+		// cache容量未满，从头到尾扫描一个可以用的cache
+		// cprintf("\t debug Log : get a available cache\n");
+		struct blockcache* bc = cache_head.next;
+		for (; bc != &cache_head; bc = bc->next) {
+			if (bc->vaddr == 0) {
+				bc->vaddr = addr;
+				break;
+			}
+		}
+	}
 }
 
 // Flush the contents of the block containing VA out to disk if
@@ -167,6 +242,7 @@ bc_init(void)
 	struct Super super;
 	set_pgfault_handler(bc_pgfault);
 	// cprintf("before check bc\n");
+	init_blockcaches();
 	check_bc();
 
 	// cache the super block by reading it once

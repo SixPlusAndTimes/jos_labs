@@ -168,7 +168,7 @@ file_block_walk(struct File *f, uint32_t filebno, uint32_t **ppdiskbno, bool all
 			//  but alloc was 0, return -E_NOT_FOUND
 			return -E_NOT_FOUND;
 		}
-		if((r=alloc_block())<0)
+		if((r=alloc_block())<0)  // 仅仅分配一个bolckno，没有真正的物理内存被分配
 			return -E_NO_DISK;
 		f->f_indirect=r;
 		cprintf("debug\n");
@@ -203,11 +203,10 @@ file_get_block(struct File *f, uint32_t filebno, char **blk)
 	// 此时ppdiskbno地址中存储一个block的实际虚拟地址
 	if(*ppdiskbno == 0) {
 		// 还没有被分配block，立马分配一个
-		if ((*ppdiskbno = alloc_block()) < 0){
+		if ((*ppdiskbno = alloc_block()) < 0){  // 仅仅分配一个bolckno，没有真正的物理内存被分配
 			return -E_NO_DISK;
 		}
-		memset(diskaddr(*ppdiskbno), 0, BLKSIZE);
-		flush_block(diskaddr(*ppdiskbno)); 
+
 	}
 	
 	*blk=diskaddr(*ppdiskbno); // blk存储block在内存中的虚拟地址
@@ -394,7 +393,7 @@ file_read(struct File *f, void *buf, size_t count, off_t offset)
 		if ((r = file_get_block(f, pos / BLKSIZE, &blk)) < 0)
 			return r;
 		bn = MIN(BLKSIZE - pos % BLKSIZE, offset + count - pos);
-		memmove(buf, blk + pos % BLKSIZE, bn);
+		memmove(buf, blk + pos % BLKSIZE, bn);  // blk这个虚拟地置可能还没有映射物理页，发生pg_fault, 会将磁盘数据读入 
 		pos += bn;
 		buf += bn;
 	}

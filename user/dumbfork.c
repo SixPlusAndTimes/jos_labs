@@ -46,7 +46,7 @@ dumbfork(void)
 	envid_t envid;
 	uint8_t *addr;
 	int r;
-	extern unsigned char end[]; // 内核代码段最后的地址
+	extern unsigned char end[]; // 用户代码段最后的地址
 
 	// Allocate a new child environment.
 	// The kernel will initialize it with a copy of our register state,
