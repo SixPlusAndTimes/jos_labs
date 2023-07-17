@@ -1,3 +1,4 @@
+#include "cpu.h"
 #include "env.h"
 #include <inc/assert.h>
 #include <inc/x86.h>
@@ -8,8 +9,14 @@
 #include <kern/cpu.h>
 
 void sched_halt(void);
-
+void sched_yield();
 // Choose a user environment to run and run it.
+void do_timer() {
+	if (--curenv->env_ticks == 0) {
+		curenv->env_ticks = curenv->env_priority;
+		sched_yield();
+	}
+}
 void
 sched_yield(void)
 {
@@ -32,27 +39,43 @@ sched_yield(void)
 	// below to halt the cpu.
 
 	// LAB 4: Your code here.
-	int i=0,j;
-	//cprintf("i:%d cpu:%d\n",i,cpunum());
-	if(cpus[cpunum()].cpu_env)
-		i=ENVX(cpus[cpunum()].cpu_env->env_id);
-	//cprintf("i:%d\n",i);
-	
-	for(j=(i+1)%NENV; j!=i; j=(j+1)%NENV) {
-		if(envs[j].env_status == ENV_RUNNABLE)
-			env_run(&envs[j]);
+	envid_t curid = curenv ? (ENVX(curenv->env_id)) % NENV : 0;
+	envid_t id2run = -1;
+	int max_priority = 0;
+
+	if (curenv && curenv->env_status == ENV_RUNNING) {
+		id2run = curid;
+		max_priority = envs[id2run].env_priority + 10; // CPU亲和性
 	}
-	//如果不加下面这个判断，就少判断了env[i]的状态
-	//这样当所有用户环境只剩env[i]的状态是ENV_RUNNABLE时，cpu无法运行env[i]也无法halt，就一直在循环
-	if(j==i && envs[j].env_status == ENV_RUNNABLE)
-		env_run(&envs[j]);
-	
-	if(curenv && curenv->env_status == ENV_RUNNING){
-		//cprintf("i:%d cpu:%d id:%08x\n",i,cpunum(),cpus[cpunum()].cpu_env->env_id);
-		env_run(curenv);	
+
+	for (uint32_t i = 0; i < NENV; ++i) {
+		envid_t id = (curid + i) % NENV;
+		if (envs[id].env_status == ENV_RUNNABLE) {
+			if (id2run == -1) {
+				id2run = id;
+				max_priority = envs[id2run].env_priority;
+			}else {
+				int cur_prio = envs[id].env_priority;
+				if (envs[id].env_cpunum == cpunum()) { // CPU亲和性
+					cur_prio += 10;
+				}
+				if (cur_prio >= max_priority) {
+					id2run = id;
+					max_priority = cur_prio;
+				}
+
+			}
+		
+		}
 	}
-	// nothing to do
-	// sched_halt never return
+
+	if (id2run != -1) {
+		// cprintf("cpunum: %d running %d(priority: %d)\n", 
+		 	// cpunum(), id2run, envs[id2run].env_priority);
+		env_run(&envs[id2run]);
+	}
+
+	// sched_halt never returns
 	sched_halt();
 }
 

@@ -43,7 +43,7 @@
 
 #include <inc/types.h>
 
-struct PushRegs {
+struct PushRegs { // 32字节
 	/* registers as pushed by pusha */
 	uint32_t reg_edi;
 	uint32_t reg_esi;
@@ -57,11 +57,11 @@ struct PushRegs {
 
 struct Trapframe {
 	/**/
-	struct PushRegs tf_regs; // 寄存器映像由_alltraps push，在 trapentry.S 中定义
+	struct PushRegs tf_regs; // 寄存器映像由_alltraps push，在 trapentry.S 中定义 // 32字节
 	uint16_t tf_es;
 	uint16_t tf_padding1;
 	uint16_t tf_ds;
-	uint16_t tf_padding2;
+	uint16_t tf_padding2;  
 	uint32_t tf_trapno; // trapno 和 tf_err 由中断入口程序push，在trapentry.S中定义
 	/* below here defined by x86 hardware , 即由硬件自动push， 但 tf_err 是个例外，视情况而定*/
 	uint32_t tf_err;
@@ -73,7 +73,7 @@ struct Trapframe {
 	uintptr_t tf_esp;
 	uint16_t tf_ss;
 	uint16_t tf_padding4;
-} __attribute__((packed));
+} __attribute__((packed)); // 48字节
 
 struct UTrapframe {
 	/* information about the fault */

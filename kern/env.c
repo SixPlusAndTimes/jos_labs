@@ -291,7 +291,7 @@ env_alloc(struct Env **newenv_store, envid_t parent_id)
 	env_free_list = e->env_link;
 	*newenv_store = e;
 
-	cprintf("[%08x] new env %08x\n", curenv ? curenv->env_id : 0, e->env_id);
+	// cprintf("[%08x] new env %08x\n", curenv ? curenv->env_id : 0, e->env_id);
 	return 0;
 }
 
@@ -443,6 +443,8 @@ env_create(uint8_t *binary, enum EnvType type)
 		 panic("env.c : env_create failed: env_alloc failed.\n");
 	}
 	e->env_type = type;
+	e->env_priority = 32; 
+	e->env_ticks = e->env_priority;
 	// If this is the file server (type == ENV_TYPE_FS) give it I/O privileges.
 	// LAB 5: Your code here.
 	if (type == ENV_TYPE_FS) {

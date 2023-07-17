@@ -5,7 +5,7 @@
 #ifndef JOS_KERNEL
 # error "This is a JOS kernel header; user programs should not #include it"
 #endif
-
+void do_timer();
 // This function does not return.
 void sched_yield(void) __attribute__((noreturn));
 

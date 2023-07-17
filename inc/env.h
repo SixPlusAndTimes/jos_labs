@@ -45,12 +45,14 @@ enum EnvType {
 };
 
 struct Env {
-	struct Trapframe env_tf;	// Saved registers
-	struct Env *env_link;		// Next free Env
-	envid_t env_id;			// Unique environment identifier
+	struct Trapframe env_tf;	// Saved registers  // 48字节
+	struct Env *env_link;		// Next free Env	// 4字节
+	envid_t env_id;			// Unique environment identifier  // 4字节
 	envid_t env_parent_id;		// env_id of this env's parent
 	enum EnvType env_type;		// Indicates special system environments
-	unsigned env_status;		// Status of the environment
+	unsigned env_status;		// Status of the environment  // 4字节
+	uint32_t env_priority;		// 优先级别, 默认为32
+	uint32_t env_ticks;			// 一次调度前，本env执行了多少tick
 	uint32_t env_runs;		// Number of times environment has run
 	int env_cpunum;			// The CPU that the env is running on
 

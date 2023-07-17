@@ -70,7 +70,7 @@ void add_head_cachelist(struct blockcache* bc) {
 static void
 bc_pgfault(struct UTrapframe *utf)
 {
-	cprintf("bc_pgfault:---------------  \n");
+	// cprintf("bc_pgfault:---------------  \n");
 	// 与fork的pgfault相比，这里的处理函数需要处理 PTE_D, 而fork的pgfault需要处理PTE_COW
 	void *addr = (void *) utf->utf_fault_va;
 	uint32_t blockno = ((uint32_t)addr - DISKMAP) / BLKSIZE;

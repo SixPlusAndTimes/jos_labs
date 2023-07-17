@@ -236,7 +236,8 @@ trap_dispatch(struct Trapframe *tf)
 		// LAB 4: Your code here.
 		case IRQ_OFFSET+IRQ_TIMER: // 收到时钟中断就调度
 			lapic_eoi();
-			sched_yield();
+			do_timer();
+			// sched_yield();
 			break;
 		case IRQ_OFFSET + IRQ_KBD:
 			kbd_intr();
